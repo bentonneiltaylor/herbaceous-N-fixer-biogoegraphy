@@ -26,17 +26,19 @@ library(mapdata)
 library(lme4)
 library(tidyverse)
 library(maps)
+library(ggplot2)
 source("C:\\RCode\\Homegrown Functions.R")
 
 ###########################################################################
 ### Getting CoRRE Data into shape #########################################
 ###########################################################################
-cab$site.plt.yr<-with(cab, paste(site_code,"_",plot_id,"_",calendar_year))
+cab$site.plt.yr<-with(cab, paste(site_code,"_",project_name,"_",block,"_",plot_id,"_",calendar_year))
 cab$genus_species<-as.factor(paste(cab$genus,"_",cab$species))
 cab<-merge(cab,cplt,by="site_code")
 cab<-merge(cab,ctrt[,-1],by=c("site_code","project_name","calendar_year","treatment_year","treatment","community_type"),
            all.x=T,all.y=F)
 
+#### Identifying N-fixing Species ##################################################################
 nfsp$genus_species<-as.factor(paste(tolower(nfsp$Genus),"_",tolower(nfsp$Species)))
 nfsp$Genus<-tolower(nfsp$Genus)
 fixlst<-nfsp[nfsp$Nod.==1,c("Genus","Nod.")]
@@ -48,8 +50,9 @@ fixlst$genus<-as.factor(trimws(fixlst$genus))
 cab<-merge(cab,fixlst,by="genus",all.x=T,all.y=F)
 cab<-cab[!duplicated(cab$X),]
 cab$N_fixer<-ifelse(is.na(cab$N_fixer),yes=0,no=cab$N_fixer)
+####################################################################################################
 
-#calculating total abundance and relative abundance of N fixers in each plot
+#### Calculating total abundance and relative abundance of N fixers in each plot ###################
 cplts<-unique(cab$site.plt.yr)
 cpab<-NULL
 for(i in 1:length(cplts)){
@@ -58,6 +61,7 @@ for(i in 1:length(cplts)){
   temp<-temp[!is.na(temp$site.plt.yr),]
   temp<-droplevels(temp)
   tempdf<-data.frame("site.plt.yr"=unique(temp$site.plt.yr),
+                     "treatment_year"=unique(temp$treatment_year),
                      "totab"=sum(temp$abundance, na.rm=T),
                      "fixab"=sum(temp[temp$N_fixer==1,]$abundance, na.rm=T))
   tempdf$fixra<-with(tempdf, (fixab/totab)*100)
@@ -69,14 +73,16 @@ cabplots<-cabplots[!duplicated(cabplots$site.plt.yr)&!is.na(cabplots$site.plt.yr
 cr<-merge(cabplots,cpab,by="site.plt.yr",all.x=T,all.y=T)
 
 cr<-merge(cr,cplt,by="site_code")
+#####################################################################################################
 
-#calculating species richness for fixers and non-fixers in each plot
+#### Calculating species richness for fixers and non-fixers in each plot ############################
 cplts<-unique(cab$site.plt.yr)
 cabrich<-NULL
 for(p in 1:length(cplts)){
   print(p)
-  temp<-cabctl[cab$site.plt.yr==cplts[p],]
+  temp<-cab[cab$site.plt.yr==cplts[p],]
   tempdf<-data.frame("site.plt.yr"=temp$site.plt.yr,
+                     #"treatment_year"=unique(temp$treatment_year),
                      "tot.rich"=length(unique(temp$genus_species)),
                      "fix.rich"=length(unique(temp[temp$N_fixer==1,]$genus_species)))
   cabrich<-rbind(cabrich,tempdf)
@@ -84,7 +90,9 @@ for(p in 1:length(cplts)){
 cabrich$fixrr<-with(cabrich, (fix.rich/tot.rich)*100)
 cabrich<-cabrich[!duplicated(cabrich),]
 
-### Calculating N limitation for each site ###
+#####################################################################################################
+
+### Calculating N limitation for each site ##########################################################
 cabtrt<-cab[cab$treatment_year==1,]
 cabsites<-unique(cabtrt$site_code)
 cabsitelim<-NULL
@@ -108,36 +116,65 @@ cabsitelim$NothRR<-with(cabsitelim, ((Noth.cov-ctrloth.cov)/ctrloth.cov)*100)
 cabsitelim<-cabsitelim[!is.na(cabsitelim$NRR),]
 
 csl.mrg<-cabsitelim[,c(1,6)]
+#####################################################################################################
 
+### Calculating P limitation for each site ##########################################################
+cabtrt<-cab[cab$treatment_year==1,]
+cabsites<-unique(cabtrt$site_code)
+cabsitePlim<-NULL
+for(i in 1:length(cabsites)){
+  print(i)
+  temp1<-cabtrt[cabtrt$site_code==cabsites[i],]#makes a temporary dataframe with an individual site and just the 1st year of trt data
+  ctempcon<-temp1[temp1$n==0&temp1$p==0&temp1$k==0&temp1$CO2==0&temp1$precip==0&temp1$temp==0&temp1$mow_clip==0&temp1$burn==0&temp1$herb_removal==0,]
+  ctempconoth<-temp1[temp1$p==0,]
+  ctempP<-temp1[temp1$p>0&temp1$n==0&temp1$k==0&temp1$CO2==0&temp1$precip==0&temp1$temp==0&temp1$mow_clip==0&temp1$burn==0&temp1$herb_removal==0,]
+  ctempPoth<-temp1[temp1$p>1,]
+  Plimdat<-as.data.frame(unique(temp1$site_code))
+  colnames(Plimdat)<-"site_code"
+  Plimdat$ctrl.cov<-(sum(ctempcon$abundance)/length(unique(ctempcon$plot_id)))
+  Plimdat$ctrloth.cov<-(sum(ctempconoth$abundance)/length(unique(ctempconoth$plot_id)))
+  Plimdat$P.cov<-(sum(ctempP$abundance)/length(unique(ctempP$plot_id)))
+  Plimdat$Poth.cov<-(sum(ctempPoth$abundance)/length(unique(ctempPoth$plot_id)))
+  cabsitePlim<-rbind(cabsitePlim,Plimdat)
+}
+cabsitePlim$PRR<-with(cabsitePlim, ((P.cov-ctrl.cov)/ctrl.cov)*100)
+cabsitePlim$PothRR<-with(cabsitePlim, ((Poth.cov-ctrloth.cov)/ctrloth.cov)*100)
+cabsitePlim<-cabsitePlim[!is.na(cabsitePlim$PRR),]
+
+csPl.mrg<-cabsitePlim[,c(1,6)]
+#####################################################################################################
+
+#### Merging in richness and site nutrient limitation columns #######################################
 cr<-merge(cr,csl.mrg,by="site_code",all.x=T,all.y=F)
+cr<-merge(cr,csPl.mrg,by="site_code",all.x=T,all.y=F)
 cr<-merge(cr,cabrich, by="site.plt.yr",all.x=T,all.y=F)
 cr$dataset<-"CoRRE"
 
 dat<-cr
-colnames(dat)[c(9,10,14)]<-c("LAT","LON","Nlim")
+colnames(dat)[c(10,11,15,16)]<-c("LAT","LON","Nlim","Plim")
 
-dat<-dat[,c(1,2,3,4,5,9,10,12,13,14,15,16,17,18)]
+dat<-dat[,c(1,2,3,4,5,6,10,11,13,14,15,16,17,18,19,20)]
+#####################################################################################################
 
-#Subsetting for just the control plots or the pre-treatmnet data
-cabpt<-cab[cab$treatment_year==0,]
-cabctl<-cab[cab$treatment%in%c("T0F0","control","UnwarmedControl","N0P0S0",
-                               "ambient","0N0P","Control","N0F0","AcAt",
-                               "N0M0","AMBIENT","N0","amb","XXX","0_CONTROL",
-                               "N0P0","Cont","ambient_control","CONTROL","N0B0",
-                               "Reference"),]
-cabctl2<-cab[cab$nutrients==0&cab$light==0&cab$carbon==0&cab$water==0&cab$other_manipulation==0&cab$other_trt==0,]
-cabctl<-rbind(cabpt,cabctl,cabctl2)
-cabctl<-unique(cabctl)
-cabctl<-cabctl[!is.na(cabctl$site.plt.yr),]
-
-#Subsetting for just the sites and plots that have fenced treatments
-
+#### Subsetting for just the control plots or the pre-treatmnet data ################################
+dat.pt<-dat[dat$treatment_year==0,]
+#cabctl<-dat[dat$treatment%in%c("T0F0","control","UnwarmedControl","N0P0S0",
+#                               "ambient","0N0P","Control","N0F0","AcAt",
+#                               "N0M0","AMBIENT","N0","amb","XXX","0_CONTROL",
+#                               "N0P0","Cont","ambient_control","CONTROL","N0B0",
+#                               "Reference"),]
+#cabctl2<-dat[dat$nutrients==0&dat$light==0&dat$carbon==0&dat$water==0&dat$other_manipulation==0&dat$other_trt==0,]
+#cabctl<-rbind(cabpt,cabctl,cabctl2)
+#cabctl<-unique(cabctl)
+#cabctl<-cabctl[!is.na(cabctl$site.plt.yr),]
+######################################################################################################
 
 ###########################################################################
 ### Getting GEx Data into shape ###########################################
 ###########################################################################
-gex$site.plt.yr<-with(gex, paste(site,"_",plot,"_",year))
-gexmeta.mrg<-gexmeta[,c("site","Final.Lat","Final.Long","precip")]
+gex$site.plt.yr<-with(gex, paste(site,"_",block,"_",plot,"_",year))
+gex$site.plt<-with(gex, paste(site,"_",block,"_",plot))
+gexmeta.mrg<-gexmeta[,c("site","Final.Lat","Final.Long","precip","grazing.pressure")]
 gex<-merge(gex,gexmeta.mrg, by="site",all.x=T)
 
 gex<-merge(gex,fixlst,by="genus",all.x=T,all.y=F)
@@ -149,7 +186,7 @@ gex$N_fixer<-ifelse(is.na(gex$N_fixer),yes=0,no=gex$N_fixer)
 
 gex.g<-gex[gex$trt=="G",]
 
-#Calculating total abundance and relative abundance of N fixers in each plot (only uses the grazed, i.e. unfenced, data)
+#### Calculating total abundance and relative abundance of N fixers in each plot (only uses the grazed, i.e. unfenced, data)
 gplts<-unique(gex.g$site.plt.yr)
 gpab<-NULL
 for(i in 1:length(gplts)){
@@ -158,23 +195,52 @@ for(i in 1:length(gplts)){
   temp<-temp[!is.na(temp$site.plt.yr),]
   temp<-droplevels(temp)
   tempdf<-data.frame("site.plt.yr"=unique(temp$site.plt.yr),
+                     "site.plt"=unique(temp$site.plt),
+                     "year"=unique(temp$year),
                      "totab"=sum(temp$relcov, na.rm=T),
                      "fixab"=sum(temp[temp$N_fixer==1,]$relcov, na.rm=T))
   tempdf$fixra<-with(tempdf, (fixab/totab)*100)
   gpab<-rbind(gpab,tempdf)
 }
 
-gplots<-gex.g[,c("site.plt.yr","site")]
-gplots<-gplots[!duplicated(gplots$site.plt.yr)&!is.na(gplots$site.plt.yr),]
-gplots<-merge(gplots,gpab, by="site.plt.yr",all.x=T,all.y=T)
+
+#### Calculating Grazing response ratio for each site from 1st year of exclosure ##########
+# This does not currently work because the plant data are all in "relative cover" 
+#gplts<-unique(gex$site.plt)
+#gsiteGlim<-NULL
+#for(i in 1:length(gplts)){
+#  print(i)
+#  temp<-gex[gex$site.plt==gplts[i],]
+#  temp2<-temp[temp$exage==min(temp$exage),]
+#  tempg<-temp2[temp2$trt=="G",]
+#  tempu<-temp2[temp2$trt=="U",]
+#  Glimdat<-as.data.frame(unique(temp2$site.plt))
+#  colnames(Glimdat)<-"site.plt"
+#  Glimdat$grazed<-sum(tempg$relcov)
+#  Glimdat$ungrazed<-sum(tempu$relcov)
+#  gsiteGlim<-rbind(gsiteGlim,Glimdat)
+#}
+############################################################################################
+
+gplots1<-gex.g[,c("site.plt.yr","site")]
+gplots1<-gplots1[!duplicated(gplots1$site.plt.yr)&!is.na(gplots1$site.plt.yr),]
+gplots<-merge(gplots1,gpab, by="site.plt.yr",all.x=T,all.y=T)
+#gplots.y1<-merge(gplots1,gpab.y1, by="site.plt.yr",all.x=F,all.y=T)
+
 gplt.info<-gex.g[,c("site","Final.Lat","Final.Long","precip")]
 gplt.info<-unique(gplt.info)
 g<-merge(gplots,gplt.info,by="site",all.x=T,all.y=T)
 g$MAT<-NA
 g$Nlim<-NA
+g$Plim<-NA
 
+#g.y1<-merge(gplots.y1,gplt.info, by="site", all.x=T,all.y=T)
+#g.y1$MAT<-NA
+#g.y1$Nlim<-NA
+#g.y1$Plim<-NA
+##########################################################################################
 
-#calculating species richness for fixers and non-fixers in each plot
+#calculating species richness for fixers and non-fixers in just the grazed section of each plot
 gplts<-unique(gex.g$site.plt.yr)
 grich<-NULL
 for(p in 1:length(gplts)){
@@ -186,15 +252,34 @@ for(p in 1:length(gplts)){
   grich<-rbind(grich,tempdf)
 }
 grich$fixrr<-with(grich, (fix.rich/tot.rich)*100)
-
 g<-merge(g,grich,by="site.plt.yr",all.x=T,all.y=T)
-g<-g[,c(1:7,9,8,10:13)]
+
+#### Extracting just the first year of data for each plot #################################
+g.y1<-NULL
+siteplots<-unique(g$site.plt)
+for(i in 1:length(siteplots)){
+  print(i)
+  temp<-g[g$site.plt==siteplots[i],]
+  temp2<-temp[temp$year==min(temp$year),]
+  g.y1<-rbind(g.y1,temp2)
+}
+###########################################################################################
+
+g<-g[,c(1,2,4:9,11,10,12:16)]
+g.y1<-g.y1[,c(1,2,4:9,11,10,12:16)]
 g$dataset<-"GEx"
+g.y1$dataset<-"GEx"
 clnms<-names(dat)
 colnames(g)<-clnms
+colnames(g.y1)<-clnms
 
+#### Adding GEx data into the "dat" object (all data combined) ############################
 dat<-rbind(dat,g)
 dat$abs.LAT<-abs(dat$LAT)
+
+#### Adding first year of GEx data into the "dat.pt" object (all data combined) ###########
+dat.pt<-rbind(dat.pt,g.y1)#this strings together the pre-treatment data from CoRRE and the control data from year 1 of GEx
+dat.pt$abs.LAT<-abs(dat.pt$LAT)
 
 ###########################################################################
 ### Getting NutNet Data into shape ########################################
@@ -259,7 +344,7 @@ for(s in 1:length(sites)){
 sitelim$NRR<-with(sitelim, ((N.cov-ctrl.cov)/ctrl.cov)*100)
 sitelim$NKRR<-with(sitelim, ((NK.cov-ctrlK.cov)/ctrlK.cov)*100)
 sitelim<-sitelim[!is.na(sitelim$NRR),]
-sitelim$msRR<-with(sitelim, ((N.mass-ctrl.mass)/ctrl.mass)*100)
+#sitelim$msRR<-with(sitelim, ((N.mass-ctrl.mass)/ctrl.mass)*100)
 
 sitelim.mrg<-sitelim[,c(1,6,7)]
 nn<-merge(nn,sitelim.mrg,by="site_code",all.x=T,all.y=F)
