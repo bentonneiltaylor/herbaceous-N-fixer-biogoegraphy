@@ -9,9 +9,8 @@
 ###########################################################################
 ### Read in the data and load R packages ##################################
 setwd("C:/Users/Owner/Desktop/Work Files/Research/Herbaceous Legume Biogeography/Data Analysis & Figure Files/herbaceous-N-fixer-biogoegraphy")
-#setwd("C:/Users/Benton/Desktop/Work Files/Research/Herbaceous Legume Biogeography/Data Analysis & Figure Files")
-#nnplt<-read.csv("NutNet_plot_data_31-Aug-2018.csv")#reads in NutNet plot data
-#nnab<-read.csv("NutNet_raw_abundance_31-Aug-2018.csv")#reads in NutNet abundance data
+nnplt<-read.csv("NutNet_plot_data_31-Aug-2018.csv")#reads in NutNet plot data
+nnab<-read.csv("NutNet_raw_abundance_31-Aug-2018.csv")#reads in NutNet abundance data
 cplt<-read.csv("CORRE_site_summary.csv")#reads in CoRRE plot data
 cab<-read.csv("CORRE_raw_abundance.csv")#reads in CoRRE abundance data
 ctrt<-read.csv("CORRE_treatment_summary.csv")#reads in CoRRE treatment data
@@ -150,14 +149,13 @@ cr<-merge(cr,csPl.mrg,by="site_code",all.x=T,all.y=F)
 cr<-merge(cr,cabrich, by="site.plt.yr",all.x=T,all.y=F)
 cr$dataset<-"CoRRE"
 
-dat<-cr
-colnames(dat)[c(10,11,15,16)]<-c("LAT","LON","Nlim","Plim")
-
-dat<-dat[,c(1,2,3,4,5,6,10,11,13,14,15,16,17,18,19,20)]
+colnames(cr)[c(10,11,15,16)]<-c("LAT","LON","Nlim","Plim")
+cr<-cr[,c(1,2,3,4,5,6,10,11,13,14,15,16,17,18,19,20)]
+cr$abs.LAT<-abs(cr$LAT)
 #####################################################################################################
 
 #### Subsetting for just the control plots or the pre-treatmnet data ################################
-dat.pt<-dat[dat$treatment_year==0,]
+cr.pt<-cr[cr$treatment_year==0,]
 #cabctl<-dat[dat$treatment%in%c("T0F0","control","UnwarmedControl","N0P0S0",
 #                               "ambient","0N0P","Control","N0F0","AcAt",
 #                               "N0M0","AMBIENT","N0","amb","XXX","0_CONTROL",
@@ -225,7 +223,6 @@ for(i in 1:length(gplts)){
 gplots1<-gex.g[,c("site.plt.yr","site")]
 gplots1<-gplots1[!duplicated(gplots1$site.plt.yr)&!is.na(gplots1$site.plt.yr),]
 gplots<-merge(gplots1,gpab, by="site.plt.yr",all.x=T,all.y=T)
-#gplots.y1<-merge(gplots1,gpab.y1, by="site.plt.yr",all.x=F,all.y=T)
 
 gplt.info<-gex.g[,c("site","Final.Lat","Final.Long","precip")]
 gplt.info<-unique(gplt.info)
@@ -234,10 +231,6 @@ g$MAT<-NA
 g$Nlim<-NA
 g$Plim<-NA
 
-#g.y1<-merge(gplots.y1,gplt.info, by="site", all.x=T,all.y=T)
-#g.y1$MAT<-NA
-#g.y1$Nlim<-NA
-#g.y1$Plim<-NA
 ##########################################################################################
 
 #calculating species richness for fixers and non-fixers in just the grazed section of each plot
@@ -269,22 +262,24 @@ g<-g[,c(1,2,4:9,11,10,12:16)]
 g.y1<-g.y1[,c(1,2,4:9,11,10,12:16)]
 g$dataset<-"GEx"
 g.y1$dataset<-"GEx"
-clnms<-names(dat)
+g$abs.LAT<-abs(g$Final.Lat)
+g.y1$abs.LAT<-abs(g.y1$Final.Lat)
+
+clnms<-names(cr)
 colnames(g)<-clnms
 colnames(g.y1)<-clnms
 
-#### Adding GEx data into the "dat" object (all data combined) ############################
-dat<-rbind(dat,g)
-dat$abs.LAT<-abs(dat$LAT)
+#### Adding GEx and CoRRE data together to create the "dat" object ############################
+dat<-rbind(cr,g)
 
-#### Adding first year of GEx data into the "dat.pt" object (all data combined) ###########
-dat.pt<-rbind(dat.pt,g.y1)#this strings together the pre-treatment data from CoRRE and the control data from year 1 of GEx
-dat.pt$abs.LAT<-abs(dat.pt$LAT)
+#### Adding first year of CoRRE and GEx data together into the "dat.pt" object #################
+dat.pt<-rbind(cr.pt,g.y1)#this strings together the pre-treatment data from CoRRE and the control data from year 1 of GEx
+
 
 ###########################################################################
 ### Getting NutNet Data into shape ########################################
 ###########################################################################
-nnab$site.plt<-with(nnab, paste(site_code,"_",plot))
+nnab$site.plt<-with(nnab, paste(site_code,"_",block,"_",plot))
 nnab$site.yr<-with(nnab, paste(site_code,"_",year))
 nnab$site.plt.yr<-with(nnab, paste(site.plt,"_",year))
 nnabc<-nnab[nnab$trt=="Control",]#pulls out just the control (unfertilized) plots
@@ -311,7 +306,7 @@ for(p in 1:length(nnplots)){
 nnrich$fix.rr<-with(nnrich, (fix.rich/tot.rich)*100)
 nnrich<-nnrich[!duplicated(nnrich),]
 
-nnplt$site.plt.yr<-with(nnplt, paste(site_code,"_",plot,"_",year))
+nnplt$site.plt.yr<-with(nnplt, paste(site_code,"_",block,"_",plot,"_",year))
 nnmrg<-nnplt[,c(91,1,3:8,45,13:17,38,29,32,18,21,39,52,56,63,64,67:90)]
 
 nn<-merge(nn,nnmrg,by="site.plt.yr",all.x=T,all.y=F)
@@ -333,71 +328,102 @@ for(s in 1:length(sites)){
   tempconK<-temp1[temp1$trt%in%c("Control","K"),]
   tempN<-temp1[temp1$trt=="N",]
   tempNK<-temp1[temp1$trt%in%c("N","NK"),]
+  tempP<-temp1[temp1$trt=="P",]
+  tempPK<-temp1[temp1$trt%in%c("P","PK"),]
   limdat<-as.data.frame(unique(temp1$site_code))
   colnames(limdat)<-"site_code"
   limdat$ctrl.cov<-(sum(tempcon$max_cover)/length(unique(tempcon$plot)))
   limdat$ctrlK.cov<-(sum(tempconK$max_cover)/length(unique(tempconK$plot)))
   limdat$N.cov<-(sum(tempN$max_cover)/length(unique(tempN$plot)))
   limdat$NK.cov<-(sum(tempNK$max_cover)/length(unique(tempNK$plot)))
+  limdat$P.cov<-(sum(tempP$max_cover)/length(unique(tempP$plot)))
+  limdat$PK.cov<-(sum(tempPK$max_cover)/length(unique(tempPK$plot)))
   sitelim<-rbind(sitelim,limdat)
 }
 sitelim$NRR<-with(sitelim, ((N.cov-ctrl.cov)/ctrl.cov)*100)
 sitelim$NKRR<-with(sitelim, ((NK.cov-ctrlK.cov)/ctrlK.cov)*100)
+sitelim$PRR<-with(sitelim, ((P.cov-ctrl.cov)/ctrl.cov)*100)
+sitelim$PKRR<-with(sitelim, ((PK.cov-ctrlK.cov)/ctrlK.cov)*100)
 sitelim<-sitelim[!is.na(sitelim$NRR),]
+sitelim<-sitelim[!is.na(sitelim$PRR),]
 #sitelim$msRR<-with(sitelim, ((N.mass-ctrl.mass)/ctrl.mass)*100)
 
-sitelim.mrg<-sitelim[,c(1,6,7)]
+sitelim.mrg<-sitelim[,c(1,8,10)]
+colnames(sitelim.mrg)<-c("site_code","Nlim","Plim")
 nn<-merge(nn,sitelim.mrg,by="site_code",all.x=T,all.y=F)
 
 
 ###########################################################################
 ### Combining NutNet & CoRRE data #########################################
 ###########################################################################
-#cnms<-c("site_code","site.plt.yr","fixra","fixrr","Nlim","LAT","LON","MAT","MAP")
-nncomb<-nn[,c(2,1,22,3,53,13,14,19,17,54,50,51,52)]
+nncomb<-nn[,c(2,1,5,22,3,53,13,14,19,17,54,55,50,51,52)]
 nncomb$dataset<-"NutNet"
+nncomb$abs.LAT<-abs(nncomb$latitude)
 colnames(nncomb)<-clnms
-nncomb$abs.LAT<-abs(nncomb$LAT)
+
 
 dat2<-rbind(dat,nncomb)
+dat2.pt<-rbind(dat.pt,nncomb)
 
-datNAM<-dat[dat$LON>-180&dat$LON< -50&dat$LAT>0,]
-dat2NAM<-dat[dat$LON>-180&dat$LON< -50&dat$LAT>0,]
+dat.NAM<-dat[dat$LON>-180&dat$LON< -50&dat$LAT>0,]
+dat2.NAM<-dat2[dat2$LON>-180&dat2$LON< -50&dat2$LAT>0,]
+
+datpt.NAM<-dat.pt[dat.pt$LON>-180&dat.pt$LON< -50&dat.pt$LAT>0,]
+dat2pt.NAM<-dat2.pt[dat2.pt$LON>-180&dat2.pt$LON< -50&dat2.pt$LAT>0,]
 
 ###########################################################################
 ### Making a Site-Level data set #########################################
 ###########################################################################
-stfxra<-with(dat, tapply(fixra, site_code, mean, na.rm=T))
-dat<-droplevels(dat)
-sitedat<-data.frame("site_code"=sort(unique(dat$site_code)),
-                    "fixra"=with(dat, tapply(fixra, site_code, mean, na.rm=T)),
-                    "fixrr"=with(dat, tapply(fixrr, site_code, mean, na.rm=T)),
-                    "MAT"=with(dat, tapply(MAT, site_code, mean, na.rm=T)),
-                    "abs.LAT"=with(dat, tapply(abs.LAT, site_code, mean, na.rm=T)),
-                    "Nlim"=with(dat, tapply(Nlim, site_code, mean, na.rm=T))
+stfxra<-with(dat.pt, tapply(fixra, site_code, mean, na.rm=T))
+dat.pt<-droplevels(dat.pt)
+sitedat<-data.frame("site_code"=sort(unique(dat.pt$site_code)),
+                    "fixra"=with(dat.pt, tapply(fixra, site_code, mean, na.rm=T)),
+                    "fixrr"=with(dat.pt, tapply(fixrr, site_code, mean, na.rm=T)),
+                    "MAT"=with(dat.pt, tapply(MAT, site_code, mean, na.rm=T)),
+                    "abs.LAT"=with(dat.pt, tapply(abs.LAT, site_code, mean, na.rm=T)),
+                    "Nlim"=with(dat.pt, tapply(Nlim, site_code, mean, na.rm=T))
                     )
 
-stfxra2<-with(dat2, tapply(fixra, site_code, mean, na.rm=T))
-dat2<-droplevels(dat2)
-sitedat2<-data.frame("site_code"=sort(unique(dat2$site_code)),
-                    "fixra"=with(dat2, tapply(fixra, site_code, mean, na.rm=T)),
-                    "fixrr"=with(dat2, tapply(fixrr, site_code, mean, na.rm=T)),
-                    "MAT"=with(dat2, tapply(MAT, site_code, mean, na.rm=T)),
-                    "abs.LAT"=with(dat2, tapply(abs.LAT, site_code, mean, na.rm=T)),
-                    "Nlim"=with(dat2, tapply(Nlim, site_code, mean, na.rm=T))
+stfxra2<-with(dat2.pt, tapply(fixra, site_code, mean, na.rm=T))
+dat2.pt<-droplevels(dat2.pt)
+sitedat2<-data.frame("site_code"=sort(unique(dat2.pt$site_code)),
+                    "fixra"=with(dat2.pt, tapply(fixra, site_code, mean, na.rm=T)),
+                    "fixrr"=with(dat2.pt, tapply(fixrr, site_code, mean, na.rm=T)),
+                    "MAT"=with(dat2.pt, tapply(MAT, site_code, mean, na.rm=T)),
+                    "abs.LAT"=with(dat2.pt, tapply(abs.LAT, site_code, mean, na.rm=T)),
+                    "Nlim"=with(dat2.pt, tapply(Nlim, site_code, mean, na.rm=T))
 )
-
-###########################################################################
-### Making a dataset for just most recent year at each site ###############
-###########################################################################
-
 
 ###########################################################################
 ### What is the Data Distribution of N-fixer Relative Abundance? ##########
 ###########################################################################
-hist(dat$fixra)#looks 0-inflated lognormal
-hist(dat[dat$fixra>0,]$fixra)#Definitely 0-inflated
-hist(log(dat[dat$fixra>0,]$fixra))#And the non-zero data are lognormal. So yes, 0-inflated lognormal
+hist(dat2.pt$fixra)#looks 0-inflated lognormal
+hist(dat2.pt[dat2.pt$fixra>0,]$fixra)#Definitely 0-inflated
+hist(log(dat2.pt[dat2.pt$fixra>0,]$fixra))#And the non-zero data are lognormal. So yes, 0-inflated lognormal
+
+###########################################################################
+### Writing data frames to files to use in analyses and figures ###########
+###########################################################################
+
+### Combined Data Files ############################################
+write.csv(dat2, file="Processed Grassland Data_3 Datasets_All Years.csv", row.names=F)
+write.csv(dat2.pt, file="Processed Grassland Data_3 Datasets_Pretreatment Year.csv", row.names=F)
+write.csv(dat, file="Processed Grassland Data_CoRRE and GEx_All Years.csv", row.names=F)
+write.csv(dat.pt, file="Processed Grassland Data_CoRRE and GEx_Pretreatment Year.csv", row.names=F)
+
+### Individual Dataset Files ########################################
+write.csv(cr, file="Processed CoRRE Data_All Years.csv", row.names=F)
+write.csv(cr.pt, file="Processed CoRRE Data_Pretreatment Year.csv", row.names=F)
+write.csv(g, file="Processed GEx Data_All Years.csv", row.names=F)
+write.csv(g.y1, file="Processed NutNet Data_First Year Only.csv", row.names=F)
+write.csv(nncomb, file="Processed NutNet Data_Pretreatment Year.csv", row.names=F)
+
+### North American Data Files #######################################
+write.csv(dat.NAM, file="Processed North American Data_CoRRE and GEX_All Years.csv", row.names=F)
+write.csv(dat2.NAM, file="Processed North American Data_3 Datasets_All Years.csv", row.names=F)
+write.csv(datpt.NAM, file="Processed North American Data_CoRRE and GEX_All Years.csv", row.names=F)
+write.csv(dat2pt.NAM, file="Processed North American Data_CoRRE and GEX_Pretreatment Year.csv", row.names=F)
+
 
 ###########################################################################
 ### What is the latitudinal pattern of N-fixer Relative Abundance? ########
