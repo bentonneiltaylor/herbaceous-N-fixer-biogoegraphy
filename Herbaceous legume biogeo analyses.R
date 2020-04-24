@@ -32,6 +32,7 @@ source("C:\\RCode\\Homegrown Functions.R")
 ### Getting CoRRE Data into shape #########################################
 ###########################################################################
 cab$site.plt.yr<-with(cab, paste(site_code,"_",project_name,"_",block,"_",plot_id,"_",calendar_year))
+cab$site.plt<-with(cab, paste(site_code,"_",project_name,"_",block,"_",plot_id))
 cab$genus_species<-as.factor(paste(cab$genus,"_",cab$species))
 cab<-merge(cab,cplt,by="site_code")
 cab<-merge(cab,ctrt[,-1],by=c("site_code","project_name","calendar_year","treatment_year","treatment","community_type"),
@@ -51,6 +52,16 @@ cab<-cab[!duplicated(cab$X),]
 cab$N_fixer<-ifelse(is.na(cab$N_fixer),yes=0,no=cab$N_fixer)
 ####################################################################################################
 
+cab$other_trt2<-ifelse(cab$other_trt%in%c("0",NA,"ambient"),yes=0,no=1)
+cab$nutrients[is.na(cab$nutrients)]<-0
+cab$light[is.na(cab$light)]<-0
+cab$carbon[is.na(cab$carbon)]<-0
+cab$water[is.na(cab$water)]<-0
+cab$other_manipulation[is.na(cab$other_manipulation)]<-0
+
+cab$control2<-with(cab,nutrients+light+carbon+water+other_manipulation+other_trt2)
+ctrl2.lines<-unique(cab[cab$control2==0,]$site.plt.yr)
+
 #### Calculating total abundance and relative abundance of N fixers in each plot ###################
 cplts<-unique(cab$site.plt.yr)
 cpab<-NULL
@@ -60,7 +71,9 @@ for(i in 1:length(cplts)){
   temp<-temp[!is.na(temp$site.plt.yr),]
   temp<-droplevels(temp)
   tempdf<-data.frame("site.plt.yr"=unique(temp$site.plt.yr),
+                     #"site.plt"=unique(temp$site.plt),
                      "treatment_year"=unique(temp$treatment_year),
+                     "treatment"=unique(temp$treatment),
                      "totab"=sum(temp$abundance, na.rm=T),
                      "fixab"=sum(temp[temp$N_fixer==1,]$abundance, na.rm=T))
   tempdf$fixra<-with(tempdf, (fixab/totab)*100)
@@ -92,7 +105,7 @@ cabrich<-cabrich[!duplicated(cabrich),]
 #####################################################################################################
 
 ### Calculating N limitation for each site ##########################################################
-cabtrt<-cab[cab$treatment_year==1,]
+cabtrt<-cab[cab$treatment_year%in%c(1:3),]
 cabsites<-unique(cabtrt$site_code)
 cabsitelim<-NULL
 for(i in 1:length(cabsites)){
@@ -118,7 +131,7 @@ csl.mrg<-cabsitelim[,c(1,6)]
 #####################################################################################################
 
 ### Calculating P limitation for each site ##########################################################
-cabtrt<-cab[cab$treatment_year==1,]
+cabtrt<-cab[cab$treatment_year%in%c(1:3),]
 cabsites<-unique(cabtrt$site_code)
 cabsitePlim<-NULL
 for(i in 1:length(cabsites)){
@@ -149,22 +162,28 @@ cr<-merge(cr,csPl.mrg,by="site_code",all.x=T,all.y=F)
 cr<-merge(cr,cabrich, by="site.plt.yr",all.x=T,all.y=F)
 cr$dataset<-"CoRRE"
 
-colnames(cr)[c(10,11,15,16)]<-c("LAT","LON","Nlim","Plim")
-cr<-cr[,c(1,2,3,4,5,6,10,11,13,14,15,16,17,18,19,20)]
-cr$abs.LAT<-abs(cr$LAT)
+colnames(cr)[c(11,12,16,17)]<-c("LAT","LON","Nlim","Plim")
 #####################################################################################################
 
 #### Subsetting for just the control plots or the pre-treatmnet data ################################
 cr.pt<-cr[cr$treatment_year==0,]
-#cabctl<-dat[dat$treatment%in%c("T0F0","control","UnwarmedControl","N0P0S0",
-#                               "ambient","0N0P","Control","N0F0","AcAt",
-#                               "N0M0","AMBIENT","N0","amb","XXX","0_CONTROL",
-#                               "N0P0","Cont","ambient_control","CONTROL","N0B0",
-#                               "Reference"),]
-#cabctl2<-dat[dat$nutrients==0&dat$light==0&dat$carbon==0&dat$water==0&dat$other_manipulation==0&dat$other_trt==0,]
-#cabctl<-rbind(cabpt,cabctl,cabctl2)
-#cabctl<-unique(cabctl)
-#cabctl<-cabctl[!is.na(cabctl$site.plt.yr),]
+crctl<-cr[cr$treatment%in%c("T0F0","control","UnwarmedControl","N0P0S0",
+                               "ambient","0N0P","Control","N0F0","AcAt",
+                               "N0M0","AMBIENT","N0","amb","XXX","0_CONTROL",
+                               "N0P0","Cont","ambient_control","CONTROL","N0B0",
+                               "Reference"),]
+#crctl2<-cr[cr$site.plt.yr%in%ctrl2.lines,]
+crctl<-rbind(cr.pt,crctl)
+crctl<-unique(crctl)
+crctl<-crctl[!is.na(crctl$site.plt.yr),]
+######################################################################################################
+
+#### Getting just the columns we'll want to merge with other datasets ################################
+cr<-cr[,c(1,2,3,5,6,7,11,12,14,15,16,17,18,19,20,21)]
+cr$abs.LAT<-abs(cr$LAT)
+
+crctl<-crctl[,c(1,2,3,5,6,7,11,12,14,15,16,17,18,19,20,21)]
+crctl$abs.LAT<-abs(crctl$LAT)
 ######################################################################################################
 
 ###########################################################################
@@ -272,8 +291,8 @@ colnames(g.y1)<-clnms
 #### Adding GEx and CoRRE data together to create the "dat" object ############################
 dat<-rbind(cr,g)
 
-#### Adding first year of CoRRE and GEx data together into the "dat.pt" object #################
-dat.pt<-rbind(cr.pt,g.y1)#this strings together the pre-treatment data from CoRRE and the control data from year 1 of GEx
+#### Adding first year of CoRRE and GEx data together into the "dat.ctl" object #################
+dat.ctl<-rbind(crctl,g.y1)#this strings together the pre-treatment data from CoRRE and the control data from year 1 of GEx
 
 
 ###########################################################################
@@ -284,6 +303,10 @@ nnab$site.yr<-with(nnab, paste(site_code,"_",year))
 nnab$site.plt.yr<-with(nnab, paste(site.plt,"_",year))
 nnabc<-nnab[nnab$trt=="Control",]#pulls out just the control (unfertilized) plots
 nnabpt<-nnab[nnab$year_trt==0,]#pulls out all plots in the pre-treatment (before fertilization) year
+nnabpt<-rbind(nnabpt,nnabc)
+
+### Because we only use control/pre-treatment data to create the plots and fixab dataframes,
+### the resulting "nn" dataframe is just control/pre-treatment data
 plots<-data.frame("site.plt.yr"=sort(unique(nnabpt$site.plt.yr)))
 fixab<-data.frame("site.plt.yr"=with(nnabpt[nnabpt$N_fixer==1,],sort(unique(site.plt.yr))),
   "fixab"<-with(nnabpt[nnabpt$N_fixer==1,], tapply(max_cover,site.plt.yr,sum)))
@@ -352,7 +375,6 @@ sitelim.mrg<-sitelim[,c(1,8,10)]
 colnames(sitelim.mrg)<-c("site_code","Nlim","Plim")
 nn<-merge(nn,sitelim.mrg,by="site_code",all.x=T,all.y=F)
 
-
 ###########################################################################
 ### Combining NutNet & CoRRE data #########################################
 ###########################################################################
@@ -363,36 +385,13 @@ colnames(nncomb)<-clnms
 
 
 dat2<-rbind(dat,nncomb)
-dat2.pt<-rbind(dat.pt,nncomb)
+dat2.ctl<-rbind(dat.ctl,nncomb)
 
 dat.NAM<-dat[dat$LON>-180&dat$LON< -50&dat$LAT>0,]
 dat2.NAM<-dat2[dat2$LON>-180&dat2$LON< -50&dat2$LAT>0,]
 
-datpt.NAM<-dat.pt[dat.pt$LON>-180&dat.pt$LON< -50&dat.pt$LAT>0,]
-dat2pt.NAM<-dat2.pt[dat2.pt$LON>-180&dat2.pt$LON< -50&dat2.pt$LAT>0,]
-
-###########################################################################
-### Making a Site-Level data set #########################################
-###########################################################################
-stfxra<-with(dat.pt, tapply(fixra, site_code, mean, na.rm=T))
-dat.pt<-droplevels(dat.pt)
-sitedat<-data.frame("site_code"=sort(unique(dat.pt$site_code)),
-                    "fixra"=with(dat.pt, tapply(fixra, site_code, mean, na.rm=T)),
-                    "fixrr"=with(dat.pt, tapply(fixrr, site_code, mean, na.rm=T)),
-                    "MAT"=with(dat.pt, tapply(MAT, site_code, mean, na.rm=T)),
-                    "abs.LAT"=with(dat.pt, tapply(abs.LAT, site_code, mean, na.rm=T)),
-                    "Nlim"=with(dat.pt, tapply(Nlim, site_code, mean, na.rm=T))
-                    )
-
-stfxra2<-with(dat2.pt, tapply(fixra, site_code, mean, na.rm=T))
-dat2.pt<-droplevels(dat2.pt)
-sitedat2<-data.frame("site_code"=sort(unique(dat2.pt$site_code)),
-                    "fixra"=with(dat2.pt, tapply(fixra, site_code, mean, na.rm=T)),
-                    "fixrr"=with(dat2.pt, tapply(fixrr, site_code, mean, na.rm=T)),
-                    "MAT"=with(dat2.pt, tapply(MAT, site_code, mean, na.rm=T)),
-                    "abs.LAT"=with(dat2.pt, tapply(abs.LAT, site_code, mean, na.rm=T)),
-                    "Nlim"=with(dat2.pt, tapply(Nlim, site_code, mean, na.rm=T))
-)
+datctl.NAM<-dat.ctl[dat.ctl$LON>-180&dat.ctl$LON< -50&dat.ctl$LAT>0,]
+dat2ctl.NAM<-dat2.ctl[dat2.ctl$LON>-180&dat2.ctl$LON< -50&dat2.ctl$LAT>0,]
 
 ###########################################################################
 ### What is the Data Distribution of N-fixer Relative Abundance? ##########
@@ -407,13 +406,13 @@ hist(log(dat2.pt[dat2.pt$fixra>0,]$fixra))#And the non-zero data are lognormal. 
 
 ### Combined Data Files ############################################
 write.csv(dat2, file="Processed Grassland Data_3 Datasets_All Years.csv", row.names=F)
-write.csv(dat2.pt, file="Processed Grassland Data_3 Datasets_Pretreatment Year.csv", row.names=F)
+write.csv(dat2.ctl, file="Processed Grassland Data_3 Datasets_Pretreatment Year.csv", row.names=F)
 write.csv(dat, file="Processed Grassland Data_CoRRE and GEx_All Years.csv", row.names=F)
-write.csv(dat.pt, file="Processed Grassland Data_CoRRE and GEx_Pretreatment Year.csv", row.names=F)
+write.csv(dat.ctl, file="Processed Grassland Data_CoRRE and GEx_Pretreatment Year.csv", row.names=F)
 
 ### Individual Dataset Files ########################################
 write.csv(cr, file="Processed CoRRE Data_All Years.csv", row.names=F)
-write.csv(cr.pt, file="Processed CoRRE Data_Pretreatment Year.csv", row.names=F)
+write.csv(crctl, file="Processed CoRRE Data_Pretreatment Year.csv", row.names=F)
 write.csv(g, file="Processed GEx Data_All Years.csv", row.names=F)
 write.csv(g.y1, file="Processed NutNet Data_First Year Only.csv", row.names=F)
 write.csv(nncomb, file="Processed NutNet Data_Pretreatment Year.csv", row.names=F)
@@ -421,8 +420,51 @@ write.csv(nncomb, file="Processed NutNet Data_Pretreatment Year.csv", row.names=
 ### North American Data Files #######################################
 write.csv(dat.NAM, file="Processed North American Data_CoRRE and GEX_All Years.csv", row.names=F)
 write.csv(dat2.NAM, file="Processed North American Data_3 Datasets_All Years.csv", row.names=F)
-write.csv(datpt.NAM, file="Processed North American Data_CoRRE and GEX_All Years.csv", row.names=F)
-write.csv(dat2pt.NAM, file="Processed North American Data_CoRRE and GEX_Pretreatment Year.csv", row.names=F)
+write.csv(datctl.NAM, file="Processed North American Data_CoRRE and GEX_All Years.csv", row.names=F)
+write.csv(dat2ctl.NAM, file="Processed North American Data_CoRRE and GEX_Pretreatment Year.csv", row.names=F)
+
+###########################################################################
+### Making a Site-Level data set #########################################
+###########################################################################
+dat2.ctl$site.plt<-sub("_[^_]+$", "",dat2.ctl$site.plt.yr)
+dat.ctl$site.plt<-sub("_[^_]+$", "",dat.ctl$site.plt.yr)
+
+### For plots with multiple years, we need to average fixra etc. for all years ###
+ziln.median.fun<-function(x){(1-(length(x[x==0])/length(x)))*exp(mean(log(x[x>0]),na.rm=T))}
+dat2.ctl.plt<-data.frame("site.plt"=sort(unique(dat2.ctl$site.plt)),
+                         "totab"=with(dat2.ctl, tapply(totab,site.plt,mean)),
+                         "fixab"=with(dat2.ctl, tapply(fixab,site.plt,mean)),
+                         "fixra"=with(dat2.ctl, tapply(fixra,site.plt,mean)),
+                         "tot.rich"=with(dat2.ctl, tapply(tot.rich,site.plt,mean)),
+                         "fix.rich"=with(dat2.ctl, tapply(fix.rich,site.plt,mean)),
+                         "fixrr"=with(dat2.ctl, tapply(fixrr,site.plt,mean)))
+d2ctl.mrg<-unique(dat2.ctl[,c(18,2,7,8,9,10,11,12,16,17)])
+dat2.ctl.plt<-merge(dat2.ctl.plt,d2ctl.mrg,by="site.plt",allx=T,all.y=T)
+dat2.ctl.plt<-dat2.ctl.plt[,c(8,1,9:14,16,2:7,15)]
+
+dat2.ctl.plt<-droplevels(dat2.ctl.plt)
+sitedat2.ctl<-data.frame("site_code"=sort(unique(dat2.ctl.plt$site_code)),
+                         "totab"=with(dat2.ctl.plt, tapply(totab,site_code,mean)),
+                         "fixab"=with(dat2.ctl.plt, tapply(fixab,site_code,mean)),
+                         "fixra"=with(dat2.ctl.plt, tapply(fixra,site_code,mean)),
+                         "tot.rich"=with(dat2.ctl.plt, tapply(tot.rich,site_code,mean)),
+                         "fix.rich"=with(dat2.ctl.plt, tapply(fix.rich,site_code,mean)),
+                         "fixrr"=with(dat2.ctl.plt, tapply(fixrr,site_code,mean)))
+d2ctlsite.mrg<-unique(dat2.ctl.plt[,c(1,3:9,16)])
+sitedat2.ctl<-merge(sitedat2.ctl,d2ctlsite.mrg,by="site_code",allx=T,all.y=T)
+sitedat2.ctl<-sitedat2.ctl[,c(1,8:14,2:7,15)]
+
+write.csv(sitedat2.ctl, file="Site-Level Control and Pretreatment Data_3 Datasets.csv", row.names=F)
+
+stfxra2<-with(dat2.ctl, tapply(fixra, site_code, mean, na.rm=T))
+dat2.ctl<-droplevels(dat2.ctl)
+sitedat2<-data.frame("site_code"=sort(unique(dat2.ctl$site_code)),
+                     "fixra"=with(dat2.ctl, tapply(fixra, site_code, mean, na.rm=T)),
+                     "fixrr"=with(dat2.ctl, tapply(fixrr, site_code, mean, na.rm=T)),
+                     "MAT"=with(dat2.ctl, tapply(MAT, site_code, mean, na.rm=T)),
+                     "abs.LAT"=with(dat2.ctl, tapply(abs.LAT, site_code, mean, na.rm=T)),
+                     "Nlim"=with(dat2.ctl, tapply(Nlim, site_code, mean, na.rm=T))
+)
 
 
 ###########################################################################
