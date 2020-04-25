@@ -26,6 +26,7 @@ library(lme4)
 library(tidyverse)
 library(maps)
 library(ggplot2)
+library(Hmisc)
 source("C:\\RCode\\Homegrown Functions.R")
 
 ###########################################################################
@@ -193,6 +194,7 @@ gex$site.plt.yr<-with(gex, paste(site,"_",block,"_",plot,"_",year))
 gex$site.plt<-with(gex, paste(site,"_",block,"_",plot))
 gexmeta.mrg<-gexmeta[,c("site","Final.Lat","Final.Long","precip","grazing.pressure")]
 gex<-merge(gex,gexmeta.mrg, by="site",all.x=T)
+gex$genus<-tolower(gsub(" .*$", "", gex$tnrs_genus_species))
 
 gex<-merge(gex,fixlst,by="genus",all.x=T,all.y=F)
 gex$N_fixer<-ifelse(is.na(gex$N_fixer),yes=0,no=gex$N_fixer)
@@ -337,11 +339,12 @@ nn<-merge(nn, nnrich, by="site.plt.yr", all.x=T, all.y=F)
 nn$fixrpc<-with(nn, (fixab/total_cover)*100)#calculates the percent cover of N fixers relativized to the total percent cover (often >100%) of the plot
 nn$fixrpc<-ifelse(nn$fixab==0, yes=0, no=nn$fixrpc)#several plots are NA for fixer relative % cover because total % cover is NA, 
 #so here I'm assigning 0's for the plots that have no fixers (we know it's 0% fixer relative % abundance regardless of what total % abundance is)
+
 nn<-nn[!duplicated(nn$site.plt.yr),]
 nn<-nn[!is.na(nn$site_code),]
 
-## Calculating N limitation for each site ###
-nnabtrt<-nnab[nnab$year_trt==1,]
+## Calculating N & P limitation for each site ###
+nnabtrt<-nnab[nnab$year_trt%in%c(1:3),]
 sites<-unique(nnabtrt$site_code)
 sitelim<-NULL
 for(s in 1:length(sites)){
