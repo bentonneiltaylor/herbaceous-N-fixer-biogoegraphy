@@ -27,6 +27,8 @@ library(tidyverse)
 library(maps)
 library(ggplot2)
 library(Hmisc)
+library(raster)
+library(sp)
 source("C:\\RCode\\Homegrown Functions.R")
 
 ###########################################################################
@@ -51,17 +53,31 @@ fixlst$genus<-as.factor(trimws(fixlst$genus))
 cab<-merge(cab,fixlst,by="genus",all.x=T,all.y=F)
 cab<-cab[!duplicated(cab$X),]
 cab$N_fixer<-ifelse(is.na(cab$N_fixer),yes=0,no=cab$N_fixer)
-####################################################################################################
 
-cab$other_trt2<-ifelse(cab$other_trt%in%c("0",NA,"ambient"),yes=0,no=1)
-cab$nutrients[is.na(cab$nutrients)]<-0
-cab$light[is.na(cab$light)]<-0
-cab$carbon[is.na(cab$carbon)]<-0
-cab$water[is.na(cab$water)]<-0
-cab$other_manipulation[is.na(cab$other_manipulation)]<-0
+#### Checking that N-fixer names are reasonable ####################################################
+fixlst.gns<-fixlst[,1]
+c.gns<-unique(cab$genus)
+c.nfix<-cab[cab$N_fixer=="1",]
+c.nfix<-droplevels(c.nfix)
+c.nfix.gns<-unique(c.nfix$genus)
+c.non<-cab[cab$N_fixer=="0",]
+c.non<-droplevels(c.non)
+c.non.gns<-unique(c.non$genus)
+setdiff(c.nfix.gns,fixlst.gns)
 
-cab$control2<-with(cab,nutrients+light+carbon+water+other_manipulation+other_trt2)
-ctrl2.lines<-unique(cab[cab$control2==0,]$site.plt.yr)
+#### Getting the list of control plots and removing experiments with diversity treatmetns ##########
+cab<-cab[cab$plant_mani!=1,]
+cab$plot_mani[is.na(cab$plot_mani)]<-0
+ctrl2.lines<-unique(cab[cab$plot_mani==0,]$site.plt.yr)
+
+#cab$other_trt2<-ifelse(cab$other_trt%in%c("0",NA,"ambient"),yes=0,no=1)
+#cab$nutrients[is.na(cab$nutrients)]<-0
+#cab$light[is.na(cab$light)]<-0
+#cab$carbon[is.na(cab$carbon)]<-0
+#cab$water[is.na(cab$water)]<-0
+#cab$other_manipulation[is.na(cab$other_manipulation)]<-0
+#cab$control2<-with(cab,nutrients+light+carbon+water+other_manipulation+other_trt2)
+#ctrl2.lines<-unique(cab[cab$control2==0,]$site.plt.yr)
 
 #### Calculating total abundance and relative abundance of N fixers in each plot ###################
 cplts<-unique(cab$site.plt.yr)
@@ -162,34 +178,36 @@ cr<-merge(cr,csl.mrg,by="site_code",all.x=T,all.y=F)
 cr<-merge(cr,csPl.mrg,by="site_code",all.x=T,all.y=F)
 cr<-merge(cr,cabrich, by="site.plt.yr",all.x=T,all.y=F)
 cr$dataset<-"CoRRE"
-
+cr$Glim<-NA
 colnames(cr)[c(11,12,16,17)]<-c("LAT","LON","Nlim","Plim")
 #####################################################################################################
 
 #### Subsetting for just the control plots or the pre-treatmnet data ################################
 cr.pt<-cr[cr$treatment_year==0,]
-crctl<-cr[cr$treatment%in%c("T0F0","control","UnwarmedControl","N0P0S0",
-                               "ambient","0N0P","Control","N0F0","AcAt",
-                               "N0M0","AMBIENT","N0","amb","XXX","0_CONTROL",
-                               "N0P0","Cont","ambient_control","CONTROL","N0B0",
-                               "Reference"),]
-#crctl2<-cr[cr$site.plt.yr%in%ctrl2.lines,]
-crctl<-rbind(cr.pt,crctl)
+#crctl<-cr[cr$treatment%in%c("T0F0","control","UnwarmedControl","N0P0S0",
+#                               "ambient","0N0P","Control","N0F0","AcAt",
+#                               "N0M0","AMBIENT","N0","amb","XXX","0_CONTROL",
+#                               "N0P0","Cont","ambient_control","CONTROL","N0B0",
+#                               "Reference"),]
+crctl2<-cr[cr$site.plt.yr%in%ctrl2.lines,]
+crctl<-rbind(cr.pt,crctl2)
 crctl<-unique(crctl)
 crctl<-crctl[!is.na(crctl$site.plt.yr),]
 ######################################################################################################
 
 #### Getting just the columns we'll want to merge with other datasets ################################
-cr<-cr[,c(1,2,3,5,6,7,11,12,14,15,16,17,18,19,20,21)]
+cr<-cr[,c(1,2,3,5,6,7,11,12,14,15,16,17,22,18,19,20,21)]
 cr$abs.LAT<-abs(cr$LAT)
 
-crctl<-crctl[,c(1,2,3,5,6,7,11,12,14,15,16,17,18,19,20,21)]
+crctl<-crctl[,c(1,2,3,5,6,7,11,12,14,15,16,17,22,18,19,20,21)]
 crctl$abs.LAT<-abs(crctl$LAT)
 ######################################################################################################
 
 ###########################################################################
 ### Getting GEx Data into shape ###########################################
 ###########################################################################
+
+### Adding in plot- and site-level data and assigning N-fixer status #################################
 gex$site.plt.yr<-with(gex, paste(site,"_",block,"_",plot,"_",year))
 gex$site.plt<-with(gex, paste(site,"_",block,"_",plot))
 gexmeta.mrg<-gexmeta[,c("site","Final.Lat","Final.Long","precip","grazing.pressure")]
@@ -199,6 +217,16 @@ gex$genus<-tolower(gsub(" .*$", "", gex$tnrs_genus_species))
 gex<-merge(gex,fixlst,by="genus",all.x=T,all.y=F)
 gex$N_fixer<-ifelse(is.na(gex$N_fixer),yes=0,no=gex$N_fixer)
 
+### Adding in MAT and MAP from WorldClim ##############################################################
+gex<-gex[-which(is.na(gex$Final.Lat)),]
+clim<-getData("worldclim",var="bio",res=10)
+clim<-clim[[c(1,12)]]
+names(clim)<-c("MAT","MAP")
+gex.coords<-gex[,c("Final.Long","Final.Lat")]
+points<-SpatialPoints(gex.coords,proj4string=clim@crs)
+climvals<-extract(clim,points)
+gex<-cbind(gex,climvals)
+########################################################################################################
 #Exporting File for Sally
 #gex_sally<-gex[,c(3,2,4:10,20,1,11:19)]
 #write.csv(gex_sally, file="GEx_Names Cleaned and N fix_BNT_2019.csv", row.names=F)
@@ -222,33 +250,34 @@ for(i in 1:length(gplts)){
   gpab<-rbind(gpab,tempdf)
 }
 
-
 #### Calculating Grazing response ratio for each site from 1st year of exclosure ##########
 # This does not currently work because the plant data are all in "relative cover" 
-#gplts<-unique(gex$site.plt)
-#gsiteGlim<-NULL
-#for(i in 1:length(gplts)){
-#  print(i)
-#  temp<-gex[gex$site.plt==gplts[i],]
-#  temp2<-temp[temp$exage==min(temp$exage),]
-#  tempg<-temp2[temp2$trt=="G",]
-#  tempu<-temp2[temp2$trt=="U",]
-#  Glimdat<-as.data.frame(unique(temp2$site.plt))
-#  colnames(Glimdat)<-"site.plt"
-#  Glimdat$grazed<-sum(tempg$relcov)
-#  Glimdat$ungrazed<-sum(tempu$relcov)
-#  gsiteGlim<-rbind(gsiteGlim,Glimdat)
-#}
+gplts<-unique(gex$site.plt)
+gsiteGlim<-NULL
+for(i in 1:length(gplts)){
+  print(i)
+  temp<-gex[gex$site.plt==gplts[i],]
+  temp2<-temp[temp$exage%in%c(min(temp$exage):min(temp$exage+2)),]
+  tempg<-temp2[temp2$trt=="G",]
+  tempu<-temp2[temp2$trt=="U",]
+  Glimdat<-data.frame("site.plt"=unique(temp2$site.plt))
+  Glimdat$fixgrazed<-sum(tempg[tempg$N_fixer==1,]$relcov+.1)
+  Glimdat$fixungrazed<-sum(tempu[tempu$N_fixer==1,]$relcov)
+  Glimdat$Glim<-(sum(tempu[tempu$N_fixer==1,]$relcov)-(sum(tempg[tempg$N_fixer==1,]$relcov)+.1))/(sum(tempg[tempg$N_fixer==1,]$relcov.1)+.1)
+  gsiteGlim<-rbind(gsiteGlim,Glimdat)
+}
+glim.mrg<-gsiteGlim[,c(1,4)]
+gpab<-merge(gpab,glim.mrg,by="site.plt",all.x=T,all.y=F)
+gpab$Glim<-ifelse(gpab$Glim==-1, yes=0,no=gpab$Glim)
 ############################################################################################
 
 gplots1<-gex.g[,c("site.plt.yr","site")]
 gplots1<-gplots1[!duplicated(gplots1$site.plt.yr)&!is.na(gplots1$site.plt.yr),]
 gplots<-merge(gplots1,gpab, by="site.plt.yr",all.x=T,all.y=T)
 
-gplt.info<-gex.g[,c("site","Final.Lat","Final.Long","precip")]
+gplt.info<-gex.g[,c("site","Final.Lat","Final.Long","MAT","MAP")]
 gplt.info<-unique(gplt.info)
 g<-merge(gplots,gplt.info,by="site",all.x=T,all.y=T)
-g$MAT<-NA
 g$Nlim<-NA
 g$Plim<-NA
 
@@ -279,8 +308,8 @@ for(i in 1:length(siteplots)){
 }
 ###########################################################################################
 
-g<-g[,c(1,2,4:9,11,10,12:16)]
-g.y1<-g.y1[,c(1,2,4:9,11,10,12:16)]
+g<-g[,c(1,2,4:7,9:14,8,15:17)]
+g.y1<-g.y1[,c(1,2,4:7,9:14,8,15:17)]
 g$dataset<-"GEx"
 g.y1$dataset<-"GEx"
 g$abs.LAT<-abs(g$Final.Lat)
@@ -381,7 +410,8 @@ nn<-merge(nn,sitelim.mrg,by="site_code",all.x=T,all.y=F)
 ###########################################################################
 ### Combining NutNet & CoRRE data #########################################
 ###########################################################################
-nncomb<-nn[,c(2,1,5,22,3,53,13,14,19,17,54,55,50,51,52)]
+nn$Glim<-NA
+nncomb<-nn[,c(2,1,5,22,3,53,13,14,19,17,54,55,60,50,51,52)]
 nncomb$dataset<-"NutNet"
 nncomb$abs.LAT<-abs(nncomb$latitude)
 colnames(nncomb)<-clnms
@@ -432,7 +462,7 @@ write.csv(dat2ctl.NAM, file="Processed North American Data_CoRRE and GEX_Pretrea
 dat2.ctl$site.plt<-sub("_[^_]+$", "",dat2.ctl$site.plt.yr)
 dat.ctl$site.plt<-sub("_[^_]+$", "",dat.ctl$site.plt.yr)
 
-### For plots with multiple years, we need to average fixra etc. for all years ###
+### For plots with multiple years, we need to average fixra etc. for all years #######################
 ziln.median.fun<-function(x){(1-(length(x[x==0])/length(x)))*exp(mean(log(x[x>0]),na.rm=T))}
 dat2.ctl.plt<-data.frame("site.plt"=sort(unique(dat2.ctl$site.plt)),
                          "totab"=with(dat2.ctl, tapply(totab,site.plt,mean)),
@@ -444,7 +474,9 @@ dat2.ctl.plt<-data.frame("site.plt"=sort(unique(dat2.ctl$site.plt)),
 d2ctl.mrg<-unique(dat2.ctl[,c(18,2,7,8,9,10,11,12,16,17)])
 dat2.ctl.plt<-merge(dat2.ctl.plt,d2ctl.mrg,by="site.plt",allx=T,all.y=T)
 dat2.ctl.plt<-dat2.ctl.plt[,c(8,1,9:14,16,2:7,15)]
+#######################################################################################################
 
+#### Getting average values for each site so that each site is only represented once ##################
 dat2.ctl.plt<-droplevels(dat2.ctl.plt)
 sitedat2.ctl<-data.frame("site_code"=sort(unique(dat2.ctl.plt$site_code)),
                          "totab"=with(dat2.ctl.plt, tapply(totab,site_code,mean)),
@@ -458,17 +490,38 @@ sitedat2.ctl<-merge(sitedat2.ctl,d2ctlsite.mrg,by="site_code",allx=T,all.y=T)
 sitedat2.ctl<-sitedat2.ctl[,c(1,8:14,2:7,15)]
 
 write.csv(sitedat2.ctl, file="Site-Level Control and Pretreatment Data_3 Datasets.csv", row.names=F)
+#######################################################################################################
 
-stfxra2<-with(dat2.ctl, tapply(fixra, site_code, mean, na.rm=T))
-dat2.ctl<-droplevels(dat2.ctl)
-sitedat2<-data.frame("site_code"=sort(unique(dat2.ctl$site_code)),
-                     "fixra"=with(dat2.ctl, tapply(fixra, site_code, mean, na.rm=T)),
-                     "fixrr"=with(dat2.ctl, tapply(fixrr, site_code, mean, na.rm=T)),
-                     "MAT"=with(dat2.ctl, tapply(MAT, site_code, mean, na.rm=T)),
-                     "abs.LAT"=with(dat2.ctl, tapply(abs.LAT, site_code, mean, na.rm=T)),
-                     "Nlim"=with(dat2.ctl, tapply(Nlim, site_code, mean, na.rm=T))
-)
+#### Now collapsing "sites" that are within .01 degree lat/lon into a single site #####################
+sitedat2.ctl$latbin<-round(sitedat2.ctl$LAT,1)
+sitedat2.ctl$lonbin<-round(sitedat2.ctl$LON,1)
+sitedat2.ctl$latlon<-with(sitedat2.ctl, paste(LAT,"_",LON))
+sitedat2.ctl$gridcell<-with(sitedat2.ctl, paste(latbin,"_",lonbin))
 
+gridcells<-unique(sitedat2.ctl$gridcell)
+ctldat<-NULL
+for(i in 1:length(gridcells)){
+  print(i)
+  temp<-sitedat2.ctl[sitedat2.ctl$gridcell==gridcells[i],]
+  tempdat<-data.frame("gridcell"=gridcells[i])
+  tempdat$num.sites<-nrow(temp)
+  tempdat$LAT=mean(temp$LAT,na.rm=T)
+  tempdat$LON=mean(temp$LON,na.rm=T)
+  tempdat$MAT=mean(temp$MAT,na.rm=T)
+  tempdat$MAP=mean(temp$MAP,na.rm=T)
+  tempdat$Nlim=mean(temp$Nlim,na.rm=T)
+  tempdat$Plim=mean(temp$Plim,na.rm=T)
+  tempdat$abs.LAT=mean(temp$abs.LAT,na.rm=T)
+  tempdat$totab=mean(temp$totab,na.rm=T)
+  tempdat$fixab=mean(temp$fixab,na.rm=T)
+  tempdat$fixra=mean(temp$fixra,na.rm=T)
+  tempdat$tot.rich=mean(temp$tot.rich,na.rm=T)
+  tempdat$fix.rich=mean(temp$fix.rich,na.rm=T)
+  tempdat$fixrr=mean(temp$fixrr,na.rm=T)
+  ctldat<-rbind(ctldat,tempdat)
+  }
+
+write.csv(ctldat, file="Gridcell-Level Control and Pretreatment Data_3 Datasets.csv", row.names=F)
 
 ###########################################################################
 ### What is the latitudinal pattern of N-fixer Relative Abundance? ########
