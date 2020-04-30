@@ -23,7 +23,7 @@ library(bbmle)
 library(vegan)
 library(mapdata)
 library(lme4)
-library(tidyverse)
+#library(tidyverse)
 library(maps)
 library(ggplot2)
 library(Hmisc)
@@ -80,6 +80,8 @@ ctrl2.lines<-unique(cab[cab$plot_mani==0,]$site.plt.yr)
 #ctrl2.lines<-unique(cab[cab$control2==0,]$site.plt.yr)
 
 #### Calculating total abundance and relative abundance of N fixers in each plot ###################
+cab<-cab[!is.na(cab$site.plt.yr),]
+cab<-droplevels(cab)
 cplts<-unique(cab$site.plt.yr)
 cpab<-NULL
 for(i in 1:length(cplts)){
@@ -251,7 +253,6 @@ for(i in 1:length(gplts)){
 }
 
 #### Calculating Grazing response ratio for each site from 1st year of exclosure ##########
-# This does not currently work because the plant data are all in "relative cover" 
 gplts<-unique(gex$site.plt)
 gsiteGlim<-NULL
 for(i in 1:length(gplts)){
@@ -261,14 +262,18 @@ for(i in 1:length(gplts)){
   tempg<-temp2[temp2$trt=="G",]
   tempu<-temp2[temp2$trt=="U",]
   Glimdat<-data.frame("site.plt"=unique(temp2$site.plt))
-  Glimdat$fixgrazed<-sum(tempg[tempg$N_fixer==1,]$relcov+.1)
+  Glimdat$fixgrazed<-sum(tempg[tempg$N_fixer==1,]$relcov)
   Glimdat$fixungrazed<-sum(tempu[tempu$N_fixer==1,]$relcov)
-  Glimdat$Glim<-(sum(tempu[tempu$N_fixer==1,]$relcov)-(sum(tempg[tempg$N_fixer==1,]$relcov)+.1))/(sum(tempg[tempg$N_fixer==1,]$relcov.1)+.1)
+  Glimdat$Gdiff<-sum(tempu[tempu$N_fixer==1,]$relcov)-(sum(tempg[tempg$N_fixer==1,]$relcov))
   gsiteGlim<-rbind(gsiteGlim,Glimdat)
 }
-glim.mrg<-gsiteGlim[,c(1,4)]
+
+Gdiff.mn<-mean(gsiteGlim[gsiteGlim$Gdiff!=0,]$Gdiff)
+Gdiff.sd<-sd(gsiteGlim[gsiteGlim$Gdiff!=0,]$Gdiff)
+gsiteGlim$Glim<-(gsiteGlim$Gdiff-Gdiff.mn)/Gdiff.sd
+gsiteGlim$Glim<-ifelse(gsiteGlim$fixgrazed==0&gsiteGlim$fixungrazed==0, yes=NA, no=gsiteGlim$Glim)
+glim.mrg<-gsiteGlim[,c(1,5)]
 gpab<-merge(gpab,glim.mrg,by="site.plt",all.x=T,all.y=F)
-gpab$Glim<-ifelse(gpab$Glim==-1, yes=0,no=gpab$Glim)
 ############################################################################################
 
 gplots1<-gex.g[,c("site.plt.yr","site")]
@@ -378,7 +383,7 @@ sites<-unique(nnabtrt$site_code)
 sitelim<-NULL
 for(s in 1:length(sites)){
   print(s)
-  temp1<-nnab[nnab$site_code==sites[s]&nnab$year_trt==1&nnab$live==1,]#makes a temporary dataframe with an individual site and just the 1st year of trt data
+  temp1<-nnab[nnab$site_code==sites[s]&nnab$year_trt%in%c(1:3)&nnab$live==1,]#makes a temporary dataframe with an individual site and just the 1st year of trt data
   tempcon<-temp1[temp1$trt=="Control",]
   tempconK<-temp1[temp1$trt%in%c("Control","K"),]
   tempN<-temp1[temp1$trt=="N",]
@@ -411,7 +416,7 @@ nn<-merge(nn,sitelim.mrg,by="site_code",all.x=T,all.y=F)
 ### Combining NutNet & CoRRE data #########################################
 ###########################################################################
 nn$Glim<-NA
-nncomb<-nn[,c(2,1,5,22,3,53,13,14,19,17,54,55,60,50,51,52)]
+nncomb<-nn[,c(2,1,5,22,3,53,13,14,19,17,54,55,56,50,51,52)]
 nncomb$dataset<-"NutNet"
 nncomb$abs.LAT<-abs(nncomb$latitude)
 colnames(nncomb)<-clnms
@@ -429,9 +434,9 @@ dat2ctl.NAM<-dat2.ctl[dat2.ctl$LON>-180&dat2.ctl$LON< -50&dat2.ctl$LAT>0,]
 ###########################################################################
 ### What is the Data Distribution of N-fixer Relative Abundance? ##########
 ###########################################################################
-hist(dat2.pt$fixra)#looks 0-inflated lognormal
-hist(dat2.pt[dat2.pt$fixra>0,]$fixra)#Definitely 0-inflated
-hist(log(dat2.pt[dat2.pt$fixra>0,]$fixra))#And the non-zero data are lognormal. So yes, 0-inflated lognormal
+hist(dat2.ctl$fixra)#looks 0-inflated lognormal
+hist(dat2.ctl[dat2.ctl$fixra>0,]$fixra)#Definitely 0-inflated
+hist(log(dat2.ctl[dat2.ctl$fixra>0,]$fixra))#And the non-zero data are lognormal. So yes, 0-inflated lognormal
 
 ###########################################################################
 ### Writing data frames to files to use in analyses and figures ###########
@@ -471,9 +476,9 @@ dat2.ctl.plt<-data.frame("site.plt"=sort(unique(dat2.ctl$site.plt)),
                          "tot.rich"=with(dat2.ctl, tapply(tot.rich,site.plt,mean)),
                          "fix.rich"=with(dat2.ctl, tapply(fix.rich,site.plt,mean)),
                          "fixrr"=with(dat2.ctl, tapply(fixrr,site.plt,mean)))
-d2ctl.mrg<-unique(dat2.ctl[,c(18,2,7,8,9,10,11,12,16,17)])
+d2ctl.mrg<-unique(dat2.ctl[,c(19,2,7,8,9,10,11,12,13,17,18)])
 dat2.ctl.plt<-merge(dat2.ctl.plt,d2ctl.mrg,by="site.plt",allx=T,all.y=T)
-dat2.ctl.plt<-dat2.ctl.plt[,c(8,1,9:14,16,2:7,15)]
+dat2.ctl.plt<-dat2.ctl.plt[,c(8,1,9:15,17,2:7,16)]
 #######################################################################################################
 
 #### Getting average values for each site so that each site is only represented once ##################
@@ -485,9 +490,9 @@ sitedat2.ctl<-data.frame("site_code"=sort(unique(dat2.ctl.plt$site_code)),
                          "tot.rich"=with(dat2.ctl.plt, tapply(tot.rich,site_code,mean)),
                          "fix.rich"=with(dat2.ctl.plt, tapply(fix.rich,site_code,mean)),
                          "fixrr"=with(dat2.ctl.plt, tapply(fixrr,site_code,mean)))
-d2ctlsite.mrg<-unique(dat2.ctl.plt[,c(1,3:9,16)])
+d2ctlsite.mrg<-unique(dat2.ctl.plt[,c(1,3:10,17)])
 sitedat2.ctl<-merge(sitedat2.ctl,d2ctlsite.mrg,by="site_code",allx=T,all.y=T)
-sitedat2.ctl<-sitedat2.ctl[,c(1,8:14,2:7,15)]
+sitedat2.ctl<-sitedat2.ctl[,c(1,8:15,2:7,16)]
 
 write.csv(sitedat2.ctl, file="Site-Level Control and Pretreatment Data_3 Datasets.csv", row.names=F)
 #######################################################################################################
@@ -511,6 +516,7 @@ for(i in 1:length(gridcells)){
   tempdat$MAP=mean(temp$MAP,na.rm=T)
   tempdat$Nlim=mean(temp$Nlim,na.rm=T)
   tempdat$Plim=mean(temp$Plim,na.rm=T)
+  tempdat$Glim=mean(temp$Glim,na.rm=T)
   tempdat$abs.LAT=mean(temp$abs.LAT,na.rm=T)
   tempdat$totab=mean(temp$totab,na.rm=T)
   tempdat$fixab=mean(temp$fixab,na.rm=T)
