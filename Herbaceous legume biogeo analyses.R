@@ -34,6 +34,7 @@ source("C:\\RCode\\Homegrown Functions.R")
 ###########################################################################
 ### Getting CoRRE Data into shape #########################################
 ###########################################################################
+cab<-cab[cab$site_code!="CEH",]
 cab$site.plt.yr<-with(cab, paste(site_code,"_",project_name,"_",block,"_",plot_id,"_",calendar_year))
 cab$site.plt<-with(cab, paste(site_code,"_",project_name,"_",block,"_",plot_id))
 cab$genus_species<-as.factor(paste(cab$genus,"_",cab$species))
@@ -181,6 +182,7 @@ cr<-merge(cr,csPl.mrg,by="site_code",all.x=T,all.y=F)
 cr<-merge(cr,cabrich, by="site.plt.yr",all.x=T,all.y=F)
 cr$dataset<-"CoRRE"
 cr$Glim<-NA
+cr$GrazeRR<-NA
 colnames(cr)[c(11,12,16,17)]<-c("LAT","LON","Nlim","Plim")
 #####################################################################################################
 
@@ -198,10 +200,10 @@ crctl<-crctl[!is.na(crctl$site.plt.yr),]
 ######################################################################################################
 
 #### Getting just the columns we'll want to merge with other datasets ################################
-cr<-cr[,c(1,2,3,5,6,7,11,12,14,15,16,17,22,18,19,20,21)]
+cr<-cr[,c(1,2,3,5,6,7,11,12,14,15,16,17,22,23,18,19,20,21)]
 cr$abs.LAT<-abs(cr$LAT)
 
-crctl<-crctl[,c(1,2,3,5,6,7,11,12,14,15,16,17,22,18,19,20,21)]
+crctl<-crctl[,c(1,2,3,5,6,7,11,12,14,15,16,17,22,23,18,19,20,21)]
 crctl$abs.LAT<-abs(crctl$LAT)
 ######################################################################################################
 
@@ -285,7 +287,7 @@ gplt.info<-unique(gplt.info)
 g<-merge(gplots,gplt.info,by="site",all.x=T,all.y=T)
 g$Nlim<-NA
 g$Plim<-NA
-
+g$GrazeRR<-NA
 ##########################################################################################
 
 #calculating species richness for fixers and non-fixers in just the grazed section of each plot
@@ -313,8 +315,8 @@ for(i in 1:length(siteplots)){
 }
 ###########################################################################################
 
-g<-g[,c(1,2,4:7,9:14,8,15:17)]
-g.y1<-g.y1[,c(1,2,4:7,9:14,8,15:17)]
+g<-g[,c(1,2,4:7,9:14,8,15:18)]
+g.y1<-g.y1[,c(1,2,4:7,9:14,8,15:18)]
 g$dataset<-"GEx"
 g.y1$dataset<-"GEx"
 g$abs.LAT<-abs(g$Final.Lat)
@@ -390,33 +392,43 @@ for(s in 1:length(sites)){
   tempNK<-temp1[temp1$trt%in%c("N","NK"),]
   tempP<-temp1[temp1$trt=="P",]
   tempPK<-temp1[temp1$trt%in%c("P","PK"),]
+  tempF<-temp1[temp1$trt=="Fence",]
   limdat<-as.data.frame(unique(temp1$site_code))
   colnames(limdat)<-"site_code"
-  limdat$ctrl.cov<-(sum(tempcon$max_cover)/length(unique(tempcon$plot)))
-  limdat$ctrlK.cov<-(sum(tempconK$max_cover)/length(unique(tempconK$plot)))
-  limdat$N.cov<-(sum(tempN$max_cover)/length(unique(tempN$plot)))
-  limdat$NK.cov<-(sum(tempNK$max_cover)/length(unique(tempNK$plot)))
-  limdat$P.cov<-(sum(tempP$max_cover)/length(unique(tempP$plot)))
-  limdat$PK.cov<-(sum(tempPK$max_cover)/length(unique(tempPK$plot)))
+  limdat$ctrl.cov<-(sum(tempcon$max_cover)/length(unique(tempcon$site.plt)))
+  limdat$ctrlK.cov<-(sum(tempconK$max_cover)/length(unique(tempconK$site.plt)))
+  limdat$N.cov<-(sum(tempN$max_cover)/length(unique(tempN$site.plt)))
+  limdat$NK.cov<-(sum(tempNK$max_cover)/length(unique(tempNK$site.plt)))
+  limdat$P.cov<-(sum(tempP$max_cover)/length(unique(tempP$site.plt)))
+  limdat$PK.cov<-(sum(tempPK$max_cover)/length(unique(tempPK$site.plt)))
+  limdat$F.cov<-(sum(tempF$max_cover)/length(unique(tempF$site.plt)))
+  limdat$F.fixra<-sum(tempF[tempF$N_fixer==1,]$max_cover)/length(unique(tempF$site.plt))
+  limdat$C.fixra<-sum(tempcon[tempcon$N_fixer==1,]$max_cover)/length(unique(tempcon$site.plt))
+  limdat$Gdiff<-((sum(tempF[tempF$N_fixer==1,]$max_cover)/length(unique(tempF$site.plt)))-(sum(tempcon[tempcon$N_fixer==1,]$max_cover)/length(unique(tempcon$site.plt))))
   sitelim<-rbind(sitelim,limdat)
 }
+
+nn.Gdiff.mn<-mean(sitelim[sitelim$Gdiff!=0,]$Gdiff,na.rm=T)
+nn.Gdiff.sd<-sd(sitelim[sitelim$Gdiff!=0,]$Gdiff,na.rm=T)
 sitelim$NRR<-with(sitelim, ((N.cov-ctrl.cov)/ctrl.cov)*100)
 sitelim$NKRR<-with(sitelim, ((NK.cov-ctrlK.cov)/ctrlK.cov)*100)
 sitelim$PRR<-with(sitelim, ((P.cov-ctrl.cov)/ctrl.cov)*100)
 sitelim$PKRR<-with(sitelim, ((PK.cov-ctrlK.cov)/ctrlK.cov)*100)
+sitelim$GrazeRR<-with(sitelim, ((F.cov-ctrl.cov)/ctrl.cov)*100)
+sitelim$Glim<-(sitelim$Gdiff-nn.Gdiff.mn)/nn.Gdiff.sd
+sitelim$Glim<-ifelse(sitelim$F.fixra==0&sitelim$C.fixra==0, yes=NA, no=sitelim$Glim)
 sitelim<-sitelim[!is.na(sitelim$NRR),]
 sitelim<-sitelim[!is.na(sitelim$PRR),]
 #sitelim$msRR<-with(sitelim, ((N.mass-ctrl.mass)/ctrl.mass)*100)
 
-sitelim.mrg<-sitelim[,c(1,8,10)]
-colnames(sitelim.mrg)<-c("site_code","Nlim","Plim")
+sitelim.mrg<-sitelim[,c(1,12,14,16,17)]
+colnames(sitelim.mrg)<-c("site_code","Nlim","Plim","GrazeRR","Glim")
 nn<-merge(nn,sitelim.mrg,by="site_code",all.x=T,all.y=F)
 
 ###########################################################################
 ### Combining NutNet & CoRRE data #########################################
 ###########################################################################
-nn$Glim<-NA
-nncomb<-nn[,c(2,1,5,22,3,53,13,14,19,17,54,55,56,50,51,52)]
+nncomb<-nn[,c(2,1,5,22,3,53,13,14,19,17,54,55,57,56,50,51,52)]
 nncomb$dataset<-"NutNet"
 nncomb$abs.LAT<-abs(nncomb$latitude)
 colnames(nncomb)<-clnms
@@ -469,6 +481,74 @@ dat.ctl$site.plt<-sub("_[^_]+$", "",dat.ctl$site.plt.yr)
 
 ### For plots with multiple years, we need to average fixra etc. for all years #######################
 ziln.median.fun<-function(x){(1-(length(x[x==0])/length(x)))*exp(mean(log(x[x>0]),na.rm=T))}
+dat.ctl.plt<-data.frame("site.plt"=sort(unique(dat.ctl$site.plt)),
+                         "totab"=with(dat.ctl, tapply(totab,site.plt,mean)),
+                         "fixab"=with(dat.ctl, tapply(fixab,site.plt,mean)),
+                         "fixra"=with(dat.ctl, tapply(fixra,site.plt,mean)),
+                         "tot.rich"=with(dat.ctl, tapply(tot.rich,site.plt,mean)),
+                         "fix.rich"=with(dat.ctl, tapply(fix.rich,site.plt,mean)),
+                         "fixrr"=with(dat.ctl, tapply(fixrr,site.plt,mean)))
+dctl.mrg<-unique(dat.ctl[,c(20,2,7,8,9,10,11,12,14,13,18,19)])
+dat.ctl.plt<-merge(dat.ctl.plt,dctl.mrg,by="site.plt",allx=T,all.y=T)
+dat.ctl.plt<-dat.ctl.plt[,c(8,1,9:16,18,2:7,17)]
+#######################################################################################################
+
+#### Getting average values for each site so that each site is only represented once ##################
+pfun<-function(x){length(x[x==0])/length(x)}
+ufun<-function(x){exp(mean(log(x[x>0]),na.rm=T))}
+dat.ctl.plt<-droplevels(dat.ctl.plt)
+sitedat.ctl<-data.frame("site_code"=sort(unique(dat.ctl.plt$site_code)),
+                         "totab"=with(dat.ctl.plt, tapply(totab,site_code,mean)),
+                         "fixab"=with(dat.ctl.plt, tapply(fixab,site_code,mean)),
+                         "fixra"=with(dat.ctl.plt, tapply(fixra,site_code,mean)),
+                         "fixra.p"=with(dat.ctl.plt, tapply(fixra, site_code,pfun)),
+                         "fixra.u"=with(dat.ctl.plt, tapply(fixra, site_code,ufun)),
+                         "tot.rich"=with(dat.ctl.plt, tapply(tot.rich,site_code,mean)),
+                         "fix.rich"=with(dat.ctl.plt, tapply(fix.rich,site_code,mean)),
+                         "fixrr"=with(dat.ctl.plt, tapply(fixrr,site_code,mean)))
+dctlsite.mrg<-unique(dat.ctl.plt[,c(1,3:11,18)])
+sitedat.ctl<-merge(sitedat.ctl,dctlsite.mrg,by="site_code",allx=T,all.y=T)
+sitedat.ctl<-sitedat.ctl[,c(1,10:18,2:9,19)]
+
+write.csv(sitedat.ctl, file="Site-Level Control and Pretreatment Data_CoRRE and GEx.csv", row.names=F)
+#######################################################################################################
+
+#### Now collapsing "sites" that are within .01 degree lat/lon into a single site #####################
+sitedat.ctl$latbin<-round(sitedat.ctl$LAT,1)
+sitedat.ctl$lonbin<-round(sitedat.ctl$LON,1)
+sitedat.ctl$latlon<-with(sitedat.ctl, paste(LAT,"_",LON))
+sitedat.ctl$gridcell<-with(sitedat.ctl, paste(latbin,"_",lonbin))
+
+gridcells<-unique(sitedat.ctl$gridcell)
+ctldat<-NULL
+for(i in 1:length(gridcells)){
+  print(i)
+  temp<-sitedat.ctl[sitedat.ctl$gridcell==gridcells[i],]
+  tempdat<-data.frame("gridcell"=gridcells[i])
+  tempdat$num.sites<-nrow(temp)
+  tempdat$LAT=mean(temp$LAT,na.rm=T)
+  tempdat$LON=mean(temp$LON,na.rm=T)
+  tempdat$MAT=mean(temp$MAT,na.rm=T)
+  tempdat$MAP=mean(temp$MAP,na.rm=T)
+  tempdat$Nlim=mean(temp$Nlim,na.rm=T)
+  tempdat$Plim=mean(temp$Plim,na.rm=T)
+  tempdat$GrazeRR=mean(temp$GrazeRR,na.rm=T)
+  tempdat$Glim=mean(temp$Glim,na.rm=T)
+  tempdat$abs.LAT=mean(temp$abs.LAT,na.rm=T)
+  tempdat$totab=mean(temp$totab,na.rm=T)
+  tempdat$fixab=mean(temp$fixab,na.rm=T)
+  tempdat$fixra=mean(temp$fixra,na.rm=T)
+  tempdat$fixra.p=mean(temp$fixra.p,na.rm=T)
+  tempdat$fixra.u=mean(temp$fixra.u ,na.rm=T)
+  tempdat$tot.rich=mean(temp$tot.rich,na.rm=T)
+  tempdat$fix.rich=mean(temp$fix.rich,na.rm=T)
+  tempdat$fixrr=mean(temp$fixrr,na.rm=T)
+  ctldat<-rbind(ctldat,tempdat)
+}
+
+write.csv(ctldat, file="Gridcell-Level Control and Pretreatment Data_CoRRE and GEx.csv", row.names=F)
+
+### ALL 3 DATASETS -- For plots with multiple years, we need to average fixra etc. for all years #######################
 dat2.ctl.plt<-data.frame("site.plt"=sort(unique(dat2.ctl$site.plt)),
                          "totab"=with(dat2.ctl, tapply(totab,site.plt,mean)),
                          "fixab"=with(dat2.ctl, tapply(fixab,site.plt,mean)),
@@ -476,9 +556,9 @@ dat2.ctl.plt<-data.frame("site.plt"=sort(unique(dat2.ctl$site.plt)),
                          "tot.rich"=with(dat2.ctl, tapply(tot.rich,site.plt,mean)),
                          "fix.rich"=with(dat2.ctl, tapply(fix.rich,site.plt,mean)),
                          "fixrr"=with(dat2.ctl, tapply(fixrr,site.plt,mean)))
-d2ctl.mrg<-unique(dat2.ctl[,c(19,2,7,8,9,10,11,12,13,17,18)])
+d2ctl.mrg<-unique(dat2.ctl[,c(20,2,7,8,9,10,11,12,14,13,18,19)])
 dat2.ctl.plt<-merge(dat2.ctl.plt,d2ctl.mrg,by="site.plt",allx=T,all.y=T)
-dat2.ctl.plt<-dat2.ctl.plt[,c(8,1,9:15,17,2:7,16)]
+dat2.ctl.plt<-dat2.ctl.plt[,c(8,1,9:16,18,2:7,17)]
 #######################################################################################################
 
 #### Getting average values for each site so that each site is only represented once ##################
@@ -487,12 +567,14 @@ sitedat2.ctl<-data.frame("site_code"=sort(unique(dat2.ctl.plt$site_code)),
                          "totab"=with(dat2.ctl.plt, tapply(totab,site_code,mean)),
                          "fixab"=with(dat2.ctl.plt, tapply(fixab,site_code,mean)),
                          "fixra"=with(dat2.ctl.plt, tapply(fixra,site_code,mean)),
+                         "fixra.p"=with(dat2.ctl.plt, tapply(fixra, site_code,pfun)),
+                         "fixra.u"=with(dat2.ctl.plt, tapply(fixra, site_code,ufun)),
                          "tot.rich"=with(dat2.ctl.plt, tapply(tot.rich,site_code,mean)),
                          "fix.rich"=with(dat2.ctl.plt, tapply(fix.rich,site_code,mean)),
                          "fixrr"=with(dat2.ctl.plt, tapply(fixrr,site_code,mean)))
-d2ctlsite.mrg<-unique(dat2.ctl.plt[,c(1,3:10,17)])
+d2ctlsite.mrg<-unique(dat2.ctl.plt[,c(1,3:11,18)])
 sitedat2.ctl<-merge(sitedat2.ctl,d2ctlsite.mrg,by="site_code",allx=T,all.y=T)
-sitedat2.ctl<-sitedat2.ctl[,c(1,8:15,2:7,16)]
+sitedat2.ctl<-sitedat2.ctl[,c(1,10:18,2:9,19)]
 
 write.csv(sitedat2.ctl, file="Site-Level Control and Pretreatment Data_3 Datasets.csv", row.names=F)
 #######################################################################################################
@@ -504,7 +586,7 @@ sitedat2.ctl$latlon<-with(sitedat2.ctl, paste(LAT,"_",LON))
 sitedat2.ctl$gridcell<-with(sitedat2.ctl, paste(latbin,"_",lonbin))
 
 gridcells<-unique(sitedat2.ctl$gridcell)
-ctldat<-NULL
+ctldat2<-NULL
 for(i in 1:length(gridcells)){
   print(i)
   temp<-sitedat2.ctl[sitedat2.ctl$gridcell==gridcells[i],]
@@ -516,25 +598,28 @@ for(i in 1:length(gridcells)){
   tempdat$MAP=mean(temp$MAP,na.rm=T)
   tempdat$Nlim=mean(temp$Nlim,na.rm=T)
   tempdat$Plim=mean(temp$Plim,na.rm=T)
+  tempdat$GrazeRR=mean(temp$GrazeRR,na.rm=T)
   tempdat$Glim=mean(temp$Glim,na.rm=T)
   tempdat$abs.LAT=mean(temp$abs.LAT,na.rm=T)
   tempdat$totab=mean(temp$totab,na.rm=T)
   tempdat$fixab=mean(temp$fixab,na.rm=T)
   tempdat$fixra=mean(temp$fixra,na.rm=T)
+  tempdat$fixra.p=mean(temp$fixra.p,na.rm=T)
+  tempdat$fixra.u=mean(temp$fixra.u ,na.rm=T)
   tempdat$tot.rich=mean(temp$tot.rich,na.rm=T)
   tempdat$fix.rich=mean(temp$fix.rich,na.rm=T)
   tempdat$fixrr=mean(temp$fixrr,na.rm=T)
-  ctldat<-rbind(ctldat,tempdat)
+  ctldat2<-rbind(ctldat2,tempdat)
   }
 
-write.csv(ctldat, file="Gridcell-Level Control and Pretreatment Data_3 Datasets.csv", row.names=F)
+write.csv(ctldat2, file="Gridcell-Level Control and Pretreatment Data_3 Datasets.csv", row.names=F)
 
 ###########################################################################
 ### What is the latitudinal pattern of N-fixer Relative Abundance? ########
 ###########################################################################
-with(dat, summary(lm(fixra~abs.LAT)))
-with(dat, summary(lm(fixra~abs.LAT+site_code)))
-with(dat, summary(lmer(fixra~abs.LAT+(1|site_code))))
+with(ctldat, summary(lm(fixra~abs.LAT)))
+with(ctldat, summary(lm(fixra~abs.LAT+site_code)))
+with(ctldat, summary(lmer(fixra~abs.LAT+(1|site_code))))
 
 with(sitedat, summary(lm(log(fixra+1)~abs.LAT)))
 
@@ -547,9 +632,9 @@ with(datNAM, summary(lmer(fixra~abs.LAT+(1|site_code))))
 ### What is the latitudinal pattern of N-fixer Relative Abundance? ########
 ### INCLUDING NUTNET DATA #################################################
 ###########################################################################
-with(dat2, summary(lm(fixra~abs.LAT)))
-with(dat2, summary(lm(fixra~abs.LAT+site_code)))
-with(dat2, summary(lmer(fixra~abs.LAT+(1|site_code))))
+with(ctldat2, summary(lm(fixra~abs.LAT)))
+with(ctldat2, summary(lm(fixra~abs.LAT+site_code)))
+with(ctldat2, summary(lmer(fixra~abs.LAT+(1|site_code))))
 
 with(sitedat2, summary(lm(log(fixra+1)~abs.LAT)))
 
