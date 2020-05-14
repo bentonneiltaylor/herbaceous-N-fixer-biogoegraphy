@@ -505,10 +505,12 @@ sitedat.ctl<-data.frame("site_code"=sort(unique(dat.ctl.plt$site_code)),
                          "fixra.u"=with(dat.ctl.plt, tapply(fixra, site_code,ufun)),
                          "tot.rich"=with(dat.ctl.plt, tapply(tot.rich,site_code,mean)),
                          "fix.rich"=with(dat.ctl.plt, tapply(fix.rich,site_code,mean)),
-                         "fixrr"=with(dat.ctl.plt, tapply(fixrr,site_code,mean)))
-dctlsite.mrg<-unique(dat.ctl.plt[,c(1,3:11,18)])
+                         "fixrr"=with(dat.ctl.plt, tapply(fixrr,site_code,mean)),
+                         "Glim"=with(dat.ctl.plt, tapply(Glim,site_code,mean)))
+dctlsite.mrg<-unique(dat.ctl.plt[,c(1,3:9,11,18)])
 sitedat.ctl<-merge(sitedat.ctl,dctlsite.mrg,by="site_code",allx=T,all.y=T)
-sitedat.ctl<-sitedat.ctl[,c(1,10:18,2:9,19)]
+sitedat.ctl$fix.dom<-with(sitedat.ctl, (fixra-(1-fixra.p))/2)
+sitedat.ctl<-sitedat.ctl[,c(1,11:17,10,18,2:9,20,19)]
 
 write.csv(sitedat.ctl, file="Site-Level Control and Pretreatment Data_CoRRE and GEx.csv", row.names=F)
 #######################################################################################################
@@ -543,6 +545,7 @@ for(i in 1:length(gridcells)){
   tempdat$tot.rich=mean(temp$tot.rich,na.rm=T)
   tempdat$fix.rich=mean(temp$fix.rich,na.rm=T)
   tempdat$fixrr=mean(temp$fixrr,na.rm=T)
+  tempdat$fix.dom=mean(temp$fix.dom,na.rm=T)
   ctldat<-rbind(ctldat,tempdat)
 }
 
@@ -571,10 +574,13 @@ sitedat2.ctl<-data.frame("site_code"=sort(unique(dat2.ctl.plt$site_code)),
                          "fixra.u"=with(dat2.ctl.plt, tapply(fixra, site_code,ufun)),
                          "tot.rich"=with(dat2.ctl.plt, tapply(tot.rich,site_code,mean)),
                          "fix.rich"=with(dat2.ctl.plt, tapply(fix.rich,site_code,mean)),
-                         "fixrr"=with(dat2.ctl.plt, tapply(fixrr,site_code,mean)))
-d2ctlsite.mrg<-unique(dat2.ctl.plt[,c(1,3:11,18)])
+                         "fixrr"=with(dat2.ctl.plt, tapply(fixrr,site_code,mean)),
+                         "GrazeRR"=with(dat2.ctl.plt, tapply(GrazeRR,site_code,mean)),
+                         "Glim"=with(dat2.ctl.plt, tapply(Glim,site_code,mean)))
+d2ctlsite.mrg<-unique(dat2.ctl.plt[,c(1,3:8,11,18)])
 sitedat2.ctl<-merge(sitedat2.ctl,d2ctlsite.mrg,by="site_code",allx=T,all.y=T)
-sitedat2.ctl<-sitedat2.ctl[,c(1,10:18,2:9,19)]
+sitedat2.ctl$fix.dom<-with(sitedat2.ctl, (fixra-(1-fixra.p))/2)
+sitedat2.ctl<-sitedat2.ctl[,c(1,12:17,10,11,18,2:9,20,19)]
 
 write.csv(sitedat2.ctl, file="Site-Level Control and Pretreatment Data_3 Datasets.csv", row.names=F)
 #######################################################################################################
@@ -609,6 +615,7 @@ for(i in 1:length(gridcells)){
   tempdat$tot.rich=mean(temp$tot.rich,na.rm=T)
   tempdat$fix.rich=mean(temp$fix.rich,na.rm=T)
   tempdat$fixrr=mean(temp$fixrr,na.rm=T)
+  tempdat$fix.dom=mean(temp$fix.dom,na.rm=T)
   ctldat2<-rbind(ctldat2,tempdat)
   }
 
