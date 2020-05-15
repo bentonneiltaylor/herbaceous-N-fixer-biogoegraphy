@@ -107,6 +107,18 @@ cr<-merge(cabplots,cpab,by="site.plt.yr",all.x=T,all.y=T)
 cr<-merge(cr,cplt,by="site_code")
 #####################################################################################################
 
+### Adding in MAT and MAP from WorldClim ##############################################################
+cr<-cr[,-c(14,15)]#removes MAT and MAP columns so we can replace them with WorldClim data
+clim<-getData("worldclim",var="bio",res=10)
+clim<-clim[[c(1,12)]]
+names(clim)<-c("MAT","MAP")
+cr.coords<-cr[,c("longitude","latitude")]
+points<-SpatialPoints(cr.coords,proj4string=clim@crs)
+cr.climvals<-extract(clim,points)
+cr<-cbind(cr,cr.climvals)
+cr$MAT<-(cr$MAT/10)
+#####################################################################################################
+
 #### Calculating species richness for fixers and non-fixers in each plot ############################
 cplts<-unique(cab$site.plt.yr)
 cabrich<-NULL
@@ -230,6 +242,7 @@ gex.coords<-gex[,c("Final.Long","Final.Lat")]
 points<-SpatialPoints(gex.coords,proj4string=clim@crs)
 climvals<-extract(clim,points)
 gex<-cbind(gex,climvals)
+gex$MAT<-(gex$MAT/10)
 ########################################################################################################
 #Exporting File for Sally
 #gex_sally<-gex[,c(3,2,4:10,20,1,11:19)]
@@ -353,7 +366,7 @@ nn<-merge(plots,fixab, by="site.plt.yr",all.x=T,all.y=T)
 colnames(nn)<-c("site.plt.yr","fixab")
 nn$fixab<-ifelse(is.na(nn$fixab),yes=0,no=nn$fixab)
 
-#calculating species richness for fixers and non-fixers in each plot
+### Calculating species richness for fixers and non-fixers in each plot #############################
 nnplots<-unique(nnabpt$site.plt.yr)
 nnrich<-NULL
 for(p in 1:length(nnplots)){
@@ -378,8 +391,9 @@ nn$fixrpc<-ifelse(nn$fixab==0, yes=0, no=nn$fixrpc)#several plots are NA for fix
 
 nn<-nn[!duplicated(nn$site.plt.yr),]
 nn<-nn[!is.na(nn$site_code),]
+#####################################################################################################
 
-## Calculating N & P limitation for each site ###
+### Calculating N & P limitation for each site #######################################################
 nnabtrt<-nnab[nnab$year_trt%in%c(1:3),]
 sites<-unique(nnabtrt$site_code)
 sitelim<-NULL
@@ -425,10 +439,22 @@ sitelim.mrg<-sitelim[,c(1,12,14,16,17)]
 colnames(sitelim.mrg)<-c("site_code","Nlim","Plim","GrazeRR","Glim")
 nn<-merge(nn,sitelim.mrg,by="site_code",all.x=T,all.y=F)
 
+### Adding in MAT and MAP from WorldClim ##############################################################
+#nn<-nn[,-c(19,17)]#removes MAT and MAP columns so we can replace them with WorldClim data
+clim<-getData("worldclim",var="bio",res=10)
+clim<-clim[[c(1,12)]]
+names(clim)<-c("MAT","MAP")
+nn.coords<-nn[,c("longitude","latitude")]
+points<-SpatialPoints(nn.coords,proj4string=clim@crs)
+nn.climvals<-extract(clim,points)
+nn<-cbind(nn,nn.climvals)
+nn$MAT<-(nn$MAT/10)
+#####################################################################################################
+
 ###########################################################################
 ### Combining NutNet & CoRRE data #########################################
 ###########################################################################
-nncomb<-nn[,c(2,1,5,22,3,53,13,14,19,17,54,55,57,56,50,51,52)]
+nncomb<-nn[,c(2,1,5,22,3,53,13,14,58,59,54,55,57,56,50,51,52)]
 nncomb$dataset<-"NutNet"
 nncomb$abs.LAT<-abs(nncomb$latitude)
 colnames(nncomb)<-clnms

@@ -163,10 +163,10 @@ dev.off()
 ########################################################
 #### N-FIXER ABUNDANCE VS. TEMPERATURE #################
 ########################################################
-sc$tempbins<-cut((sc$MAT/10),c(seq(-12,28,1)),labels=c(seq(-11,28,1)))
-tempbn.mn<-data.frame("MAT"=seq(-11,28,1),
+sc$tempbins<-cut((sc$MAT),c(seq(-12,29,1)),labels=c(seq(-11.5,29,1)))
+tempbn.mn<-data.frame("MAT"=seq(-11.5,29,1),
                       "fixra"=with(sc, tapply(fixra,tempbins,mean, na.rm=T)))
-tempbn.mdn<-data.frame("MAT"=seq(-11,28,1),
+tempbn.mdn<-data.frame("MAT"=seq(-11.5,29,1),
                       "fixra"=with(sc, tapply(fixra,tempbins,ziln.median.fun)))
 
 #t.xseq<-seq(-12,28,.1)
@@ -174,22 +174,22 @@ tempbn.mdn<-data.frame("MAT"=seq(-11,28,1),
 #t.predcrv<-data.frame("x"=t.xseq,"y"=t.yseq)
 temp.predmedian<-alogitfn(1-coef(MAT_bestmod)[3])*exp(coef(MAT_bestmod)[2])
 
-tempfull<-ggplot(sc, aes(x=(MAT/10),y=fixra))+
+tempfull<-ggplot(sc, aes(x=(MAT),y=fixra))+
   geom_point(size=2,colour="grey")+
   #geom_point(data=tempbn.mn, mapping=aes(x=MAT,y=fixra),size=4,shape=21, fill="red")+
   geom_point(data=tempbn.mdn, mapping=aes(x=MAT,y=fixra),size=4,shape=21, fill=clrs[1])+
   theme(text=element_text(size=18, colour="black"),axis.text.x=element_text(size=20, colour="black"),
         axis.text.y=element_text(size=20, colour="black"))+
   theme(panel.background=element_rect(fill="white", color="white"), legend.position="none")+
-  geom_segment(aes(x=-8,xend=-8,y=0,yend=25),colour="black")+
-  geom_segment(aes(x=-8,xend=30,y=0,yend=0),colour="black")+
+  geom_segment(aes(x=-12,xend=-12,y=0,yend=33),colour="black")+
+  geom_segment(aes(x=-12,xend=30,y=0,yend=0),colour="black")+
   xlab(expression("MAT ("*degree*")"))+
   ylab("N-Fixer Relative Abundance (%)")+
   #ggtitle("Global")+
   theme(plot.title=element_text(hjust=.5))+
   #geom_line(aes(x=x,y=y), data=t.predcrv, colour="black")+
   geom_abline(slope=0,intercept=temp.predmedian,colour="black")+
-  coord_cartesian(xlim=c(-8,30),ylim=c(0,25),expand=F)
+  coord_cartesian(xlim=c(-12,30),ylim=c(0,33),expand=F)
 
 png(filename = "GEx CoRRE N-fixer Abundance vs. Temperature.png", width=8, height=6, units="in", res=300)
 tempfull
@@ -457,7 +457,7 @@ t.mdn.plt<-ggplot()+
   ylab("N-Fixer Relative Abundance (%)")+
   geom_segment(aes(x=-6,xend=28,y=temp.predmedian,yend=temp.predmedian),colour="black",size=1.2)+
   #geom_line(aes(x=x,y=y), data=t.predcrv, colour="black", size=1.2)+
-  coord_cartesian(xlim=c(-7,30),ylim=c(-1,34),expand=F)
+  coord_cartesian(xlim=c(-12,30),ylim=c(-1,34),expand=F)
 
 prec.mdn.plt<-ggplot()+
   geom_point(data=precbn.mdn, mapping=aes(x=MAP,y=fixra),size=5,shape=21, fill=clrs[1])+
