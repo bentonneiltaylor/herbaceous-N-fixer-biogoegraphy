@@ -355,6 +355,8 @@ nnab$site.plt.yr<-with(nnab, paste(site.plt,"_",year))
 nnabc<-nnab[nnab$trt=="Control",]#pulls out just the control (unfertilized) plots
 nnabpt<-nnab[nnab$year_trt==0,]#pulls out all plots in the pre-treatment (before fertilization) year
 nnabpt<-rbind(nnabpt,nnabc)
+nnabpt<-nnabpt[nnabpt$live==1,]#removes any non-live rows of data
+nnabpt<-droplevels(nnabpt)
 
 ### Because we only use control/pre-treatment data to create the plots and fixab dataframes,
 ### the resulting "nn" dataframe is just control/pre-treatment data
@@ -367,17 +369,22 @@ colnames(nn)<-c("site.plt.yr","fixab")
 nn$fixab<-ifelse(is.na(nn$fixab),yes=0,no=nn$fixab)
 
 ### Calculating species richness for fixers and non-fixers in each plot #############################
-nnplots<-unique(nnabpt$site.plt.yr)
+nnplots<-unique(nnabpt[!is.na(nnabpt$site.plt.yr),]$site.plt.yr)
 nnrich<-NULL
 for(p in 1:length(nnplots)){
   print(p)
   temp<-nnabpt[nnabpt$site.plt.yr==nnplots[p],]
+  temp<-temp[!is.na(temp$site.plt.yr),]
+  temp<-droplevels(temp)
   tempdf<-data.frame("site.plt.yr"=temp$site.plt.yr,
                      "tot.rich"=length(unique(temp$Taxon)),
-                     "fix.rich"=length(unique(temp[temp$N_fixer==1,]$Taxon)))
+                     "fix.rich"=length(unique(temp[temp$N_fixer==1,]$Taxon)),
+                     "tot.cov"=sum(temp$max_cover),
+                     "fix.cov"=sum(temp[temp$N_fixer==1,]$max_cover))
   nnrich<-rbind(nnrich,tempdf)
 }
 nnrich$fix.rr<-with(nnrich, (fix.rich/tot.rich)*100)
+nnrich$fixra<-with(nnrich, (fix.cov/tot.cov)*100)
 nnrich<-nnrich[!duplicated(nnrich),]
 
 nnplt$site.plt.yr<-with(nnplt, paste(site_code,"_",block,"_",plot,"_",year))
@@ -385,9 +392,9 @@ nnmrg<-nnplt[,c(91,1,3:8,45,13:17,38,29,32,18,21,39,52,56,63,64,67:90)]
 
 nn<-merge(nn,nnmrg,by="site.plt.yr",all.x=T,all.y=F)
 nn<-merge(nn, nnrich, by="site.plt.yr", all.x=T, all.y=F)
-nn$fixrpc<-with(nn, (fixab/total_cover)*100)#calculates the percent cover of N fixers relativized to the total percent cover (often >100%) of the plot
-nn$fixrpc<-ifelse(nn$fixab==0, yes=0, no=nn$fixrpc)#several plots are NA for fixer relative % cover because total % cover is NA, 
-#so here I'm assigning 0's for the plots that have no fixers (we know it's 0% fixer relative % abundance regardless of what total % abundance is)
+#nn$fixrpc<-with(nn, (fixab/total_cover)*100)#calculates the percent cover of N fixers relativized to the total percent cover (often >100%) of the plot
+#nn$fixrpc<-ifelse(nn$fixab==0, yes=0, no=nn$fixrpc)#several plots are NA for fixer relative % cover because total % cover is NA, 
+##so here I'm assigning 0's for the plots that have no fixers (we know it's 0% fixer relative % abundance regardless of what total % abundance is)
 
 nn<-nn[!duplicated(nn$site.plt.yr),]
 nn<-nn[!is.na(nn$site_code),]
@@ -454,7 +461,11 @@ nn$MAT<-(nn$MAT/10)
 ###########################################################################
 ### Combining NutNet & CoRRE data #########################################
 ###########################################################################
-nncomb<-nn[,c(2,1,5,22,3,53,13,14,58,59,54,55,57,56,50,51,52)]
+#nncomb<-nn[,c(2,1,5,22,3,55,13,14,58,59,54,55,57,56,50,51,52)]
+nncomb<-nn[,c("site.plt.yr","site_code","year","tot.cov","fix.cov",
+              "fixra","latitude","longitude","MAT","MAP",
+              "Nlim","Plim","Glim","GrazeRR","tot.rich",
+              "fix.rich","fix.rr")]
 nncomb$dataset<-"NutNet"
 nncomb$abs.LAT<-abs(nncomb$latitude)
 colnames(nncomb)<-clnms

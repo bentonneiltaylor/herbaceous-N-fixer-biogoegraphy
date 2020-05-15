@@ -1,5 +1,5 @@
 ### FIGURE CODE FOR GRASSLAND N-FIXER BIOGEOGRAPHY #####
-### GEx and CoRRE Data Only ############################
+### All 3 Datasets #####################################
 
 #### Load packages and data files ####
 library(ggplot2)
@@ -10,8 +10,8 @@ library(mapdata)
 library(RColorBrewer)
 library(wesanderson)
 
+sc<-read.csv("Gridcell-Level Control and Pretreatment Data_3 Datasets.csv")
 dun.trees<-read.csv("Menge 2017_tree data_BNT.csv")
-sc<-read.csv("Gridcell-Level Control and Pretreatment Data_CoRRE and GEx.csv")
 
 ########################################################
 #### HYPOTHETICAL FIGURE OF LAT PATTERNS ###############
@@ -68,17 +68,17 @@ map('world')
 with(sc, points(x=LON, y=LAT, bg='forestgreen', pch=21, cex=1.2))
 #dev.off()
 
-#Now with GEx and CoRRE split out
-png(filename = "Map of Control Data Distribution_3 datasets.png", width=14, height=7, units="in", res=300)
-map('world')
+##Now with GEx and CoRRE split out
+#png(filename = "Map of Control Data Distribution_3 datasets.png", width=14, height=7, units="in", res=300)
+#map('world')
 #with(sc[sc$dataset=="NutNet",], points(x=LON, y=LAT, bg='forestgreen', pch=21, cex=1.2))
-with(sc[sc$dataset=="GEx",], points(x=LON, y=LAT, bg='blue', pch=21, cex=1.2))
-with(sc[sc$dataset=="CoRRE",], points(x=LON, y=LAT, bg='red', pch=21, cex=1.2))
-legend(x=43, y=-28,legend=c("CoRRE", "GEx"), pt.bg=c("Red","Blue"), pch=21, bty="n", cex=1.2)
+#with(sc[sc$dataset=="GEx",], points(x=LON, y=LAT, bg='blue', pch=21, cex=1.2))
+#with(sc[sc$dataset=="CoRRE",], points(x=LON, y=LAT, bg='red', pch=21, cex=1.2))
+#legend(x=43, y=-28,legend=c("CoRRE", "GEx"), pt.bg=c("Red","Blue"), pch=21, bty="n", cex=1.2)
 #legend(x=43, y=-28,legend=c("NutNet","CoRRE", "GEx"), pt.bg=c("forestgreen","Red","Blue"), pch=21, bty="n", cex=1.2)
-dev.off()
-
-png(filename = "Map of Control Data Distribution_Gridcell level GEX and CoRRE.png", width=14, height=7, units="in", res=300)
+#dev.off()
+pal<-wes_palette("Zissou1", 100, type = "continuous")
+png(filename = "Map of Control Data Distribution_Gridcell level 3 Datasets.png", width=14, height=7, units="in", res=300)
 ggplot(data=world)+
   theme(panel.background=element_rect(fill="aliceblue", color="aliceblue"))+
   theme(text=element_text(size=20, colour="black"),axis.text.x=element_text(size=20, colour="black"),
@@ -86,7 +86,10 @@ ggplot(data=world)+
   geom_sf(color="black", fill="antiquewhite")+
   #geom_point(data=sc[sc$dataset=="CoRRE",], mapping=aes(x=LON,y=LAT),size=3,shape=21,fill='forestgreen')+
   #geom_point(data=sc[sc$dataset=="GEx",], mapping=aes(x=LON,y=LAT),size=3,shape=21,fill='blue')+
-  geom_point(data=sc, mapping=aes(x=LON,y=LAT),size=4,shape=21,fill='red')+
+  geom_point(data=sc, mapping=aes(x=LON,y=LAT,fill=fixra),size=4.5,shape=21)+
+  scale_fill_gradientn(colours = pal) +
+  labs(fill="N-fixer Relative Abundance (%)")+
+  theme(legend.position = "top")+
   ylab(expression("Latitude "*degree*""))+
   xlab(expression("Longitude "*degree*""))
 dev.off()
@@ -159,7 +162,7 @@ png(filename = "Trees vs. Grasslands Comparison Fig.png", width=8, height=6, uni
 comp.fig
 dev.off()
 
-  
+
 ########################################################
 #### N-FIXER ABUNDANCE VS. TEMPERATURE #################
 ########################################################
@@ -167,7 +170,7 @@ sc$tempbins<-cut((sc$MAT),c(seq(-12,29,1)),labels=c(seq(-11.5,29,1)))
 tempbn.mn<-data.frame("MAT"=seq(-11.5,29,1),
                       "fixra"=with(sc, tapply(fixra,tempbins,mean, na.rm=T)))
 tempbn.mdn<-data.frame("MAT"=seq(-11.5,29,1),
-                      "fixra"=with(sc, tapply(fixra,tempbins,ziln.median.fun)))
+                       "fixra"=with(sc, tapply(fixra,tempbins,ziln.median.fun)))
 
 #t.xseq<-seq(-12,28,.1)
 #t.yseq<-(1-alogitfn(coef(MAT_bestmod)[3]+(coef(MAT_bestmod)[4]*t.xseq)))*exp(coef(MAT_bestmod)[1])
@@ -238,7 +241,7 @@ nlimdat$bins<-cut(nlimdat$Nlim,c(seq(-33,85,1)),labels=c(seq(-32.5,85,1)))
 limbn.mn<-data.frame("Nlim"=seq(-32.5,85,1),
                      "fixra"=with(nlimdat, tapply(fixra,bins,mean, na.rm=T)))
 limbn.mdn<-data.frame("Nlim"=seq(-32.5,85,1),
-                     "fixra"=with(nlimdat, tapply(fixra,bins,ziln.median.fun)))
+                      "fixra"=with(nlimdat, tapply(fixra,bins,ziln.median.fun)))
 
 #nlim.xseq<-seq(-25,85,.1)
 #nlim.yseq<-(1-(coef(N.lim_bestmod)[4])*exp(coef(N.lim_bestmod)[2]+(coef(N.lim_bestmod)[3]*nlim.xseq)))
@@ -262,7 +265,7 @@ Nlimfull<-ggplot(nlimdat, aes(x=Nlim,y=fixra))+
   geom_abline(slope=0,intercept=nlim.predmedian,colour="black")+
   xlim(-33,90)+
   coord_cartesian(xlim=c(-33,90),ylim=c(0,12))
-  #geom_line(aes(x=x,y=y), data=nlim.predcrv, colour="black")
+#geom_line(aes(x=x,y=y), data=nlim.predcrv, colour="black")
 png(filename = "GEx CoRRE N-fixer Abundance vs. N Limitation.png", width=8, height=6, units="in", res=300)
 Nlimfull
 dev.off()
@@ -273,9 +276,9 @@ dev.off()
 plimdat<-sc[!is.na(sc$Plim),]
 plimdat$bins<-cut(plimdat$Plim,c(seq(-97,31,1)),labels=c(seq(-96.5,31,1)))
 plimbn.mn<-data.frame("Plim"=seq(-96.5,31,1),
-                     "fixra"=with(plimdat, tapply(fixra,bins,mean, na.rm=T)))
+                      "fixra"=with(plimdat, tapply(fixra,bins,mean, na.rm=T)))
 plimbn.mdn<-data.frame("Plim"=seq(-96.5,31,1),
-                      "fixra"=with(plimdat, tapply(fixra,bins,ziln.median.fun)))
+                       "fixra"=with(plimdat, tapply(fixra,bins,ziln.median.fun)))
 
 #plim.xseq<-seq(-97,31,.1)
 #plim.yseq<-(1-(coef(Plim_bestmod)[5]+(coef(Plim_bestmod)[6]*plim.xseq)))*exp(coef(Plim_bestmod)[2]+(coef(Plim_bestmod)[3]*plim.xseq)+(coef(Plim_bestmod)[4]*plim.xseq^2))
@@ -309,9 +312,9 @@ dev.off()
 ########################################################
 sc$rrbins<-cut(sc$fixrr,c(seq(0,34,1)),labels=c(seq(.5,34,1)))
 rrbn.mn<-data.frame("fixrr"=seq(.5,34,1),
-                     "fixra"=with(sc, tapply(fixra,rrbins,mean, na.rm=T)))
+                    "fixra"=with(sc, tapply(fixra,rrbins,mean, na.rm=T)))
 rrbn.mdn<-data.frame("fixrr"=seq(.5,34,1),
-                      "fixra"=with(sc, tapply(fixra,rrbins,ziln.median.fun)))
+                     "fixra"=with(sc, tapply(fixra,rrbins,ziln.median.fun)))
 
 rr.xseq<-seq(0,34,.1)
 rr.yseq<-(1-alogitfn(coef(fixrr_bestmod)[5]+(coef(fixrr_bestmod)[6]*rr.xseq)))*exp(coef(fixrr_bestmod)[2]+(coef(fixrr_bestmod)[3]*rr.xseq)+(coef(fixrr_bestmod)[4]*rr.xseq^2))
@@ -342,9 +345,9 @@ dev.off()
 ########################################################
 sc$glimbins<-cut(sc$Glim,c(seq(-1.5,3,.1)),labels=c(seq(-1.45,3,.1)))
 glimbn.mn<-data.frame("Glim"=seq(-1.45,3,.1),
-                    "fixra"=with(sc, tapply(fixra,glimbins,mean, na.rm=T)))
+                      "fixra"=with(sc, tapply(fixra,glimbins,mean, na.rm=T)))
 glimbn.mdn<-data.frame("Glim"=seq(-1.45,3,.1),
-                     "fixra"=with(sc, tapply(fixra,glimbins,ziln.median.fun)))
+                       "fixra"=with(sc, tapply(fixra,glimbins,ziln.median.fun)))
 
 glim.xseq<-seq(-1.5,3,.001)
 glim.yseq<-(1-alogitfn(coef(Glim_bestmod)[5]))*exp(coef(Glim_bestmod)[2]+(coef(Glim_bestmod)[3]*rr.xseq)+(coef(Glim_bestmod)[4]*rr.xseq^2))
@@ -489,26 +492,4 @@ glim.mdn.plt<-ggplot()+
 
 png(filename = "Ecological Drivers of Grassland N fixers.png", width=10, height=12, units="in", res=300)
 ggarrange(t.mdn.plt,prec.mdn.plt,Nlim.mdn.plt,Plim.mdn.plt,rich.mdn.plt,glim.mdn.plt,ncol=2,nrow=3)
-dev.off()
-
-########################################################
-#### LATITUDINAL PATTERN OF N LIMITATION ###############
-########################################################
-Nlimlat.lm<-with(sc, lm(Nlim~abs.LAT))
-Nlim.sub<-sc[!is.na(sc$Nlim),]
-Nlimlat<-ggplot(data=Nlim.sub, aes(x=abs.LAT, y=Nlim))+
-  geom_point(size=5, shape=21, fill="grey30")+
-  theme(text=element_text(size=18, colour="black"),axis.text.x=element_text(size=20, colour="black"),
-        axis.text.y=element_text(size=20, colour="black"))+
-  theme(panel.background=element_rect(fill="white", color="white"), legend.position="none")+
-  geom_segment(aes(x=min(Nlim.sub$abs.LAT),xend=min(Nlim.sub$abs.LAT),y=min(Nlim.sub$Nlim),yend=max(Nlim.sub$Nlim)),colour="black")+
-  geom_segment(aes(x=min(Nlim.sub$abs.LAT),xend=max(Nlim.sub$abs.LAT),y=min(Nlim.sub$Nlim),yend=min(Nlim.sub$Nlim)),colour="black")+
-  geom_segment(aes(x=min(Nlim.sub$abs.LAT),xend=max(Nlim.sub$abs.LAT),y=0,yend=0),colour="black", linetype="dashed")+
-  xlab(expression("abs(latitude "*degree*")"))+
-  ylab(expression("N Limitation RR (%)"))+
-  geom_smooth(method="lm",color="black")+
-  coord_cartesian(xlim=c((min(Nlim.sub$abs.LAT)-1),(max(Nlim.sub$abs.LAT)+1)),ylim=c((min(Nlim.sub$Nlim,na.rm=T)-1),(max(Nlim.sub$Nlim,na.rm=T)+1)),expand=F)
-
-png(filename = "GEX CoRRE N-limitation Severity by Latitude.png", width=8, height=6, units="in", res=300)
-Nlimlat
 dev.off()
