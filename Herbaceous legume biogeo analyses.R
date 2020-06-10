@@ -145,8 +145,8 @@ for(i in 1:length(cabsites)){
   temp1<-cabtrt[cabtrt$site_code==cabsites[i],]#makes a temporary dataframe with an individual site and just the 1st year of trt data
   ctempcon<-temp1[temp1$n==0&temp1$p==0&temp1$k==0&temp1$CO2==0&temp1$precip==0&temp1$temp==0&temp1$mow_clip==0&temp1$burn==0&temp1$herb_removal==0,]
   ctempconoth<-temp1[temp1$n==0,]
-  ctempN<-temp1[temp1$n>0&temp1$p==0&temp1$k==0&temp1$CO2==0&temp1$precip==0&temp1$temp==0&temp1$mow_clip==0&temp1$burn==0&temp1$herb_removal==0,]
-  ctempNoth<-temp1[temp1$n>1,]
+  ctempN<-temp1[temp1$n==10&temp1$p==0&temp1$k==0&temp1$CO2==0&temp1$precip==0&temp1$temp==0&temp1$mow_clip==0&temp1$burn==0&temp1$herb_removal==0,]
+  ctempNoth<-temp1[temp1$n==10,]
   limdat<-as.data.frame(unique(temp1$site_code))
   colnames(limdat)<-"site_code"
   limdat$ctrl.cov<-(sum(ctempcon$abundance)/length(unique(ctempcon$plot_id)))
@@ -171,8 +171,8 @@ for(i in 1:length(cabsites)){
   temp1<-cabtrt[cabtrt$site_code==cabsites[i],]#makes a temporary dataframe with an individual site and just the 1st year of trt data
   ctempcon<-temp1[temp1$n==0&temp1$p==0&temp1$k==0&temp1$CO2==0&temp1$precip==0&temp1$temp==0&temp1$mow_clip==0&temp1$burn==0&temp1$herb_removal==0,]
   ctempconoth<-temp1[temp1$p==0,]
-  ctempP<-temp1[temp1$p>0&temp1$n==0&temp1$k==0&temp1$CO2==0&temp1$precip==0&temp1$temp==0&temp1$mow_clip==0&temp1$burn==0&temp1$herb_removal==0,]
-  ctempPoth<-temp1[temp1$p>1,]
+  ctempP<-temp1[temp1$p==10&temp1$n==0&temp1$k==0&temp1$CO2==0&temp1$precip==0&temp1$temp==0&temp1$mow_clip==0&temp1$burn==0&temp1$herb_removal==0,]
+  ctempPoth<-temp1[temp1$p==10,]
   Plimdat<-as.data.frame(unique(temp1$site_code))
   colnames(Plimdat)<-"site_code"
   Plimdat$ctrl.cov<-(sum(ctempcon$abundance)/length(unique(ctempcon$plot_id)))
@@ -226,7 +226,7 @@ crctl$abs.LAT<-abs(crctl$LAT)
 ### Adding in plot- and site-level data and assigning N-fixer status #################################
 gex$site.plt.yr<-with(gex, paste(site,"_",block,"_",plot,"_",year))
 gex$site.plt<-with(gex, paste(site,"_",block,"_",plot))
-gexmeta.mrg<-gexmeta[,c("site","Final.Lat","Final.Long","precip","grazing.pressure")]
+gexmeta.mrg<-gexmeta[,c("site","Final.Lat","Final.Long","precip","grazing.pressure","herbivore.type")]
 gex<-merge(gex,gexmeta.mrg, by="site",all.x=T)
 gex$genus<-tolower(gsub(" .*$", "", gex$tnrs_genus_species))
 
@@ -501,7 +501,7 @@ write.csv(dat.ctl, file="Processed Grassland Data_CoRRE and GEx_Pretreatment Yea
 write.csv(cr, file="Processed CoRRE Data_All Years.csv", row.names=F)
 write.csv(crctl, file="Processed CoRRE Data_Pretreatment Year.csv", row.names=F)
 write.csv(g, file="Processed GEx Data_All Years.csv", row.names=F)
-write.csv(g.y1, file="Processed NutNet Data_First Year Only.csv", row.names=F)
+write.csv(g.y1, file="Processed GEx Data_First Year Only.csv", row.names=F)
 write.csv(nncomb, file="Processed NutNet Data_Pretreatment Year.csv", row.names=F)
 
 ### North American Data Files #######################################
@@ -620,6 +620,9 @@ sitedat2.ctl$fix.dom<-with(sitedat2.ctl, (fixra-(1-fixra.p))/2)
 sitedat2.ctl<-sitedat2.ctl[,c(1,12:17,10,11,18,2:9,20,19)]
 
 write.csv(sitedat2.ctl, file="Site-Level Control and Pretreatment Data_3 Datasets.csv", row.names=F)
+
+sitedat2.ctl.NAM<-sitedat2.ctl[sitedat2.ctl$LON>-180&sitedat2.ctl$LON< -50&sitedat2.ctl$LAT>0,]
+write.csv(sitedat2.ctl.NAM, file="Site-Level Control and Pretreatment Data_3 Datasets NORTH AMERICA.csv", row.names=F)
 #######################################################################################################
 
 #### Now collapsing "sites" that are within .01 degree lat/lon into a single site #####################
@@ -657,6 +660,9 @@ for(i in 1:length(gridcells)){
   }
 
 write.csv(ctldat2, file="Gridcell-Level Control and Pretreatment Data_3 Datasets.csv", row.names=F)
+
+ctldat2.NAM<-ctldat2[ctldat2$LON>-180&ctldat2$LON< -50&ctldat2$LAT>0,]
+write.csv(ctldat2.NAM, file="Gridcell-Level Control and Pretreatment Data_3 Datasets NORTH AMERICA.csv", row.names=F)
 
 ###########################################################################
 ### What is the latitudinal pattern of N-fixer Relative Abundance? ########

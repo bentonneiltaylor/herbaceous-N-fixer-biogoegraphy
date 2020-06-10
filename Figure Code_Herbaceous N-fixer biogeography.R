@@ -159,7 +159,6 @@ png(filename = "Trees vs. Grasslands Comparison Fig.png", width=8, height=6, uni
 comp.fig
 dev.off()
 
-  
 ########################################################
 #### N-FIXER ABUNDANCE VS. TEMPERATURE #################
 ########################################################
