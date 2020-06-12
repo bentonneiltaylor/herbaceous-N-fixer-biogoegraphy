@@ -317,6 +317,13 @@ for(p in 1:length(gplts)){
 grich$fixrr<-with(grich, (fix.rich/tot.rich)*100)
 g<-merge(g,grich,by="site.plt.yr",all.x=T,all.y=T)
 
+#### Making a gex dataset with grazer/browser designation #################################
+anml.mrg<-gexmeta[,c("site","grazing.pressure","herbivore.type")]
+colnames(anml.mrg)[1]<-"site_code"
+g.anml<-merge(g,anml.mrg,by="site_code")
+g.anml$herb.type.pressure<-with(g.anml, paste(herbivore.type,grazing.pressure,sep="."))
+###########################################################################################  
+
 #### Extracting just the first year of data for each plot #################################
 g.y1<-NULL
 siteplots<-unique(g$site.plt)

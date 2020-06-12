@@ -577,6 +577,68 @@ Glimfull<-ggplot(glimdat, aes(x=Glim, y=fixra))+
   geom_line(aes(x=x,y=(y)), data=glim.predcrv, colour="black",size=2)+
   coord_cartesian(xlim=c(-3.7,3.1),ylim=c(0,33))
 
+png(filename = "Glim Effects on N-fixer Abundance_3-Datasets.png", width=6, height=6, units="in", res=300)
+Glimfull
+dev.off()
+
+#### Plotting GEx data only with designation for Herbivore Type
+g.anml$herb.type.num<-ifelse(g.anml$herbivore.type=="grazer", yes=1, no=3)
+g.anml$herb.type.num<-ifelse(g.anml$herbivore.type=="grazer_browser", yes=2, no=g.anml$herb.type.num)
+glimdat2<-g.anml[!is.na(g.anml$Glim),]
+glimdat2$glimbins<-cut(glimdat2$Glim,c(seq(-3.7,3.1,.1)),labels=c(seq(-3.65,3.1,.1)))
+glimbn.mn2<-data.frame("Glim"=seq(-3.65,3.1,.1),
+                      "fixra"=with(glimdat2, tapply(fixra,glimbins,mean, na.rm=T)),
+                      "herb.type"=with(glimdat2, tapply(herb.type.num,glimbins,mean, na.rm=T)))
+glimbn.mdn2<-data.frame("Glim"=seq(-3.65,3.1,.1),
+                       "fixra"=with(glimdat2, tapply(fixra,glimbins,ziln.median.fun)),
+                       "herb.type"=with(glimdat2, tapply(herb.type.num,glimbins,mean, na.rm=T)))
+
+#glim.xseq<-seq(-3.7,3.1,.001)
+#glim.yseq<-(1-alogitfn(coef(Glim_bestmod2)[5]))*exp(coef(Glim_bestmod2)[2]+(coef(Glim_bestmod2)[3]*glim.xseq)+(coef(Glim_bestmod2)[4]*glim.xseq^2))
+#glim.predcrv<-data.frame("x"=glim.xseq,"y"=glim.yseq)
+
+Glim_herb.type<-ggplot(glimdat2, aes(x=Glim, y=fixra))+
+  #geom_point(size=2, colour="grey")+
+  theme(text=element_text(size=18, colour="black"),axis.text.x=element_text(size=20, colour="black"),
+        axis.text.y=element_text(size=20, colour="black"))+
+  theme(panel.background=element_rect(fill="white", color="white"), legend.position="top")+
+  #geom_point(data=glimbn.mn, mapping=aes(x=Glim,y=fixra),size=4,shape=21,fill="red")+
+  geom_point(data=glimbn.mdn2, mapping=aes(x=Glim,y=fixra, fill=herb.type),size=4,shape=21)+
+  scale_fill_gradientn(colours=z.pal,breaks=c(1,3),labels=c("Grazer","Browser"))+
+  labs(fill="Herbivore Type")+
+  geom_segment(aes(x=0,xend=0,y=0,yend=37),colour="black",linetype="dashed")+
+  geom_segment(aes(x=-3.7,xend=-3.7,y=0,yend=37),colour="black")+
+  geom_segment(aes(x=-3.7,xend=3.1,y=0,yend=0),colour="black")+
+  xlab(expression("Herbivore Preference for N fixers"))+
+  ylab("N-Fixer Relative Abundance (%)")+
+  #ggtitle("N-fixer Richness vs. Abundance")+
+  theme(plot.title=element_text(hjust=.5))+
+  geom_line(aes(x=x,y=(y)), data=glim.predcrv, colour="black",size=2)+
+  coord_cartesian(xlim=c(-3.7,3.1),ylim=c(0,37))
+png(filename = "Glim plot with herbivore type colored.png", width=8, height=6, units="in", res=300)
+Glim_herb.type
+dev.off()
+
+#### Interaction plot of herbivore type and herbivory pressure on N-fixer Abundance #####################
+#glimdat3<-glimdat2
+#glimdat3$
+v1<-ggplot(glimdat2, aes(x=as.factor(herb.type.num), y=fixra,fill=as.factor(grazing.pressure)))+
+  geom_boxplot()+
+  labs(fill="Grazing Pressure", x="Herbivore Type", y="N-fixer Relative Abundance (%)")+
+  ylim(c(0,25))+
+  theme_classic()+
+  scale_x_discrete(breaks=c("1","2","3"),labels=c("Grazer", "Mixed", "Browser"))+
+  theme(text=element_text(size=18, colour="black"),axis.text.x=element_text(size=20, colour="black"),
+        axis.text.y=element_text(size=20, colour="black"), legend.position="top")
+amend<-ggplot_build(v1)
+amend$data[[1]]$x[7:8]<-c(2.75,3.25)
+amend$data[[1]]$xmax[7:8]<-c(2.6375,3.1375)
+amend$data[[1]]$xmin[7:8]<-c(2.8625,3.3625)
+library(grid)
+png(filename = "Interaction of Herbivore Type and Grazing Pressure.png", width=8, height=6, units="in", res=300)
+grid.draw(ggplot_gtable(amend))
+dev.off()
+
 #herb.mdn.plt<-ggplot(data=g.herbdf[g.herbdf$fix.ra>0,],aes(x=graz.trt,y=fix.ra,fill=graz.trt))+
 #  geom_boxplot(notch=F,fill=c("grey40","grey70"))+
 #  theme(panel.background=element_rect(fill="white", color="white"), legend.position="none")+
@@ -588,10 +650,6 @@ Glimfull<-ggplot(glimdat, aes(x=Glim, y=fixra))+
 #  ylab("N-Fixer Relative Abundance (%)")+
 #  geom_segment(aes(x=0.5,xend=0.5,y=0,yend=25),colour="black")+
 #  geom_segment(aes(x=0.5,xend=2.5,y=0,yend=0),colour="black")
-
-png(filename = "Glim Effects on N-fixer Abundance_3-Datasets.png", width=6, height=6, units="in", res=300)
-Glimfull
-dev.off()
 
 ########################################################
 #### MULTI-PANEL FIG OF ECOLOGICAL DRIVERS #############
